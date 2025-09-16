@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'; // You’ll need to create this
 import RegisterPage from './pages/RegisterPage'; // ✅ Add this
 import ContactPage from './pages/ContactPage'; // Create this too
 import CalenderPage from './pages/CalendarPage'; // Placeholder for future calendar page
+import EventsPage from './pages/EventsPage';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/calendar" element={<CalenderPage />} />
+        <Route path="/Events" element={<EventsPage />} />
       </Routes>
     </Router>
   );
