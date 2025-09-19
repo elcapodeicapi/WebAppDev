@@ -5,6 +5,8 @@ import RegisterPage from './pages/RegisterPage'; // ✅ Add this
 import ContactPage from './pages/ContactPage'; // Create this too
 import CalenderPage from './pages/CalendarPage'; // Placeholder for future calendar page
 import EventsPage from './pages/EventsPage';
+import Dashboard from './pages/Dashboard'; // Import the new Dashboard component
+
 
 function App() {
   return (
@@ -16,6 +18,7 @@ function App() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/calendar" element={<CalenderPage />} />
         <Route path="/Events" element={<EventsPage />} />
+        <Route path="/dashboard" element={<Dashboard />} /> {/* Route for Dashboard */}
       </Routes>
     </Router>
   );
