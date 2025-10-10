@@ -16,7 +16,6 @@ export default function Navbar() {
         <a href="/">Home</a>
         <a href="/dashboard">My Profile</a>
         <a href="/calendar">Calendar</a> {/* ✅ new page */}
-        <a href="/contact">Contact</a>
       </div>
 
       {/* Right: Login button */}
