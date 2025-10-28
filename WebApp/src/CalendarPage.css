@@ -1,0 +1,115 @@
+.calendar-container {
+  padding: 20px;
+  font-family: 'Inter', sans-serif;
+  background: #e0f2ff;
+  min-height: 100vh;
+}
+
+h1 {
+  text-align: center;
+  color: #1e3a8a;
+}
+
+.week-controls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+  gap: 10px;
+}
+
+.btn {
+  background-color: #3b82f6;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.btn:hover {
+  background-color: #2563eb;
+}
+
+.calendar-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+th, td {
+  border: 1px solid #60a5fa;
+  padding: 8px;
+  text-align: center;
+}
+
+.th-time {
+  background: #1e40af;
+  color: white;
+  width: 70px;
+}
+
+.th-day {
+  background: #3b82f6;
+  color: white;
+}
+
+.td-time {
+  background: #bfdbfe;
+  font-weight: 600;
+}
+
+.td-cell {
+  height: 70px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.td-cell.empty:hover {
+  background-color: #93c5fd;
+}
+
+.td-cell.occupied {
+  background-color: #1d4ed8;
+  color: white;
+}
+
+.meeting-block {
+  padding: 4px;
+  background-color: #2563eb;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  text-align: left;
+  color: white;
+}
+
+.modal {
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal-content {
+  padding: 20px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-content h2 {
+  margin: 0;
+}
+
+.modal-content button {
+  align-self: flex-end;
+  background: white;
+  color: #1e3a8a;
+}

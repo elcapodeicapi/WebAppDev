@@ -14,7 +14,6 @@ export default function Navbar() {
       {/* Center: Nav links */}
       <div className="navbar-center">
         <a href="/">Home</a>
-        <a href="/dashboard">My Profile</a>
         <a href="/calendar">Calendar</a> {/* ✅ new page */}
       </div>
 
