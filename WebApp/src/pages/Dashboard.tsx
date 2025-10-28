@@ -1,19 +1,19 @@
 import React from 'react';
-import NavBar from '../components/NavBar'; // Assuming NavBar is in this path
-import '../App.css'; // For general styling, adjust as needed
+import NavBar from '../components/NavBar'; 
+import '../App.css'; 
 
 const Dashboard: React.FC = () => {
-  const userName = "User Name"; // Placeholder for dynamic user name
+  const userName = "User Name"; 
 
   const upcomingEvents = [
-    { id: 1, title: "Hackathon", date: "Oct 30" },
-    { id: 2, title: "Board Game Night", date: "Nov 5" },
-    { id: 3, title: "Workshop", date: "Nov 12" },
+    { id: 1, title: "Move Night", date: "Oct 30" },
+    { id: 2, title: "Game Night", date: "Nov 5" },
+    { id: 3, title: "Sport Night", date: "Nov 12" },
   ];
 
   return (
     <div>
-      <NavBar /> {/* Assuming NavBar handles its own links */}
+      <NavBar /> {}
       <div className="dashboard-container">
         <h1>Welcome, {userName}!</h1>
 
