@@ -1,7 +1,7 @@
 import '../App.css';
 import Navbar from '../components/NavBar';
 // ==========================
-// 🔒 Google Login (commented out)
+// Google Login (commented out)
 // import { initializeApp, getApps } from 'firebase/app';
 // import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 // ==========================
@@ -11,7 +11,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   // ==========================
-  // 🔒 Firebase config (commented out)
+  // Firebase config (commented out)
   // const firebaseConfig = {
   //   apiKey: 'YOUR_API_KEY',
   //   authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
@@ -40,7 +40,7 @@ export default function LoginPage() {
 
   return (
     <div className="homepage">
-      <Navbar /> {/* ✅ Consistent navbar */}
+      <Navbar /> 
 
       <div className="homepage-content">
         <div className="homepage-text">
@@ -74,7 +74,7 @@ export default function LoginPage() {
             <span style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
           </div>
 
-          {/* 🔒 Google Sign-In (commented out) */}
+          {/* Google Sign-In (commented out) */}
           {/* <button
             type="button"
             onClick={handleGoogleLogin}

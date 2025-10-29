@@ -12,7 +12,7 @@ type MeetingRoom = {
 };
 
 // =================== CONSTANTS ===================
-const HOURS = ['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM'];
+const HOURS = ['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM']; //not whole hours
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 // =================== UTILITY ===================
@@ -41,7 +41,7 @@ function addMeeting(
   meetings: MeetingRoom[],
   setMeetings: React.Dispatch<React.SetStateAction<MeetingRoom[]>>
 ): void {
-  const title = prompt('Meeting title:');
+  const title = prompt('Meeting title:'); //dont use prompt, since it doesnt let you use decimal time
   if (!title) return;
   const durationStr = prompt('Duration (hours):', '1');
   const duration = parseInt(durationStr || '1');
