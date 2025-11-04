@@ -1,175 +1,26 @@
-import { useState, useRef, useEffect, type JSX } from 'react';
+// src/pages/CalendarPage.tsx
+import { useState } from 'react';
+import { generateMockMeetings } from '../MockedData/MockedData';
+import type { MeetingRoom } from '../MockedData/MockedData';
+import { CalendarTable } from '../components/CalendarTable';
+import { Sidebar } from '../components/Sidebar';
+import { Button } from '../components/Button';
+import { getDateString, calculateEndTime, HOURS } from '../components/constants';
 import '../CalendarPage.css';
 
-// =================== TYPES ===================
-type MeetingRoom = {
-  id: string;
-  title: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  duration: number;
-};
-
-// =================== CONSTANTS ===================
-const HOURS = ['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM']; //not whole hours
-const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-// =================== UTILITY ===================
-function getDateString(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
-function calculateEndTime(startTime: string, duration: number): string {
-  const startIndex = HOURS.indexOf(startTime);
-  const endIndex = Math.min(startIndex + duration - 1, HOURS.length - 1);
-  return HOURS[endIndex];
-}
-
-function getMeeting(hour: string, dayStr: string, meetings: MeetingRoom[]): MeetingRoom | undefined {
-  return meetings.find(m => {
-    if (m.date !== dayStr) return false;
-    const startIndex = HOURS.indexOf(m.startTime);
-    const currentIndex = HOURS.indexOf(hour);
-    return currentIndex >= startIndex && currentIndex < startIndex + m.duration;
+export default function CalendarPage() {
+  const [weekStart, setWeekStart] = useState(() => {
+    const today = new Date();
+    const day = today.getDay();
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() - day);
+    return sunday;
   });
-}
 
-function addMeeting(
-  date: Date,
-  startTime: string,
-  meetings: MeetingRoom[],
-  setMeetings: React.Dispatch<React.SetStateAction<MeetingRoom[]>>
-): void {
-  const title = prompt('Meeting title:'); //dont use prompt, since it doesnt let you use decimal time
-  if (!title) return;
-  const durationStr = prompt('Duration (hours):', '1');
-  const duration = parseInt(durationStr || '1');
-  const endTime = calculateEndTime(startTime, duration);
-  const newMeeting: MeetingRoom = {
-    id: Date.now().toString(),
-    title,
-    date: getDateString(date),
-    startTime,
-    endTime,
-    duration
-  };
-  setMeetings([...meetings, newMeeting]);
-}
-
-// =================== COMPONENTS ===================
-function Button({ text, onClick }: { text: string; onClick: () => void }): JSX.Element {
-  return (
-    <button className="btn" onClick={onClick}>{text}</button>
-  );
-}
-
-function TableHeader({ weekStart }: { weekStart: Date }): JSX.Element {
-  return (
-    <tr>
-      <th className="th-time">Time</th>
-      {DAYS.map((day, idx) => {
-        const d = new Date(weekStart);
-        d.setDate(d.getDate() + idx);
-        return (
-          <th key={idx} className="th-day">
-            {day} <br /> {d.getDate()}/{d.getMonth()+1}
-          </th>
-        );
-      })}
-    </tr>
-  );
-}
-
-function TableRow({
-  hour,
-  weekStart,
-  meetings,
-  onAddMeeting,
-  onMeetingClick
-}: {
-  hour: string;
-  weekStart: Date;
-  meetings: MeetingRoom[];
-  onAddMeeting: (date: Date, hour: string) => void;
-  onMeetingClick: (meeting: MeetingRoom) => void;
-}): JSX.Element {
-  return (
-    <tr>
-      <td className="td-time">{hour}</td>
-      {DAYS.map((_, idx) => {
-        const date = new Date(weekStart);
-        date.setDate(date.getDate() + idx);
-        const dateStr = getDateString(date);
-        const meeting = getMeeting(hour, dateStr, meetings);
-        return (
-          <TableCell
-            key={idx}
-            meeting={meeting}
-            hour={hour}
-            date={date}
-            onAddMeeting={onAddMeeting}
-            onMeetingClick={onMeetingClick}
-          />
-        );
-      })}
-    </tr>
-  );
-}
-
-function TableCell({
-  meeting,
-  hour,
-  date,
-  onAddMeeting,
-  onMeetingClick
-}: {
-  meeting: MeetingRoom | undefined;
-  hour: string;
-  date: Date;
-  onAddMeeting: (date: Date, hour: string) => void;
-  onMeetingClick: (meeting: MeetingRoom) => void;
-}): JSX.Element {
-  return (
-    <td
-      className={`td-cell ${meeting ? 'occupied' : 'empty'}`}
-      onClick={() => meeting ? onMeetingClick(meeting) : onAddMeeting(date, hour)}
-    >
-      {meeting && hour === meeting.startTime && (
-        <div className="meeting-block">
-          <strong>{meeting.title}</strong>
-          <br />
-          <small>{meeting.startTime} - {meeting.endTime}</small>
-        </div>
-      )}
-    </td>
-  );
-}
-
-function Modal({ meeting, onClose }: { meeting: MeetingRoom; onClose: () => void }): JSX.Element {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    if(dialogRef.current) dialogRef.current.showModal();
-  }, []);
-
-  return (
-    <dialog ref={dialogRef} className="modal" onClose={onClose}>
-      <div className="modal-content">
-        <h2>{meeting.title}</h2>
-        <p>Date: {meeting.date}</p>
-        <p>Time: {meeting.startTime} - {meeting.endTime}</p>
-        <button className="btn" onClick={() => { dialogRef.current?.close(); onClose(); }}>Close</button>
-      </div>
-    </dialog>
-  );
-}
-
-// =================== MAIN COMPONENT ===================
-function CalendarPage(): JSX.Element {
-  const [weekStart, setWeekStart] = useState(new Date());
-  const [meetings, setMeetings] = useState<MeetingRoom[]>([]);
+  const [meetings, setMeetings] = useState<MeetingRoom[]>(generateMockMeetings());
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingRoom | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<MeetingRoom | null>(null);
 
   const changeWeek = (dir: 'next' | 'prev') => {
     const newWeek = new Date(weekStart);
@@ -177,35 +28,101 @@ function CalendarPage(): JSX.Element {
     setWeekStart(newWeek);
   };
 
+  const handleAddClick = () => {
+    setEditingMeeting({
+      id: '',
+      title: '',
+      date: getDateString(new Date()),
+      startTime: HOURS[0],
+      endTime: calculateEndTime(HOURS[0], 1),
+      duration: 1,
+      host: '',
+      attendees: [],
+      description: '',
+      location: ''
+    });
+    setIsAdding(true);
+    setSelectedMeeting(null);
+  };
+
+  const handleSaveEvent = (event: MeetingRoom) => {
+    const exists = meetings.some(m => m.id === event.id);
+    const updatedMeetings = exists
+      ? meetings.map(m => (m.id === event.id ? event : m))
+      : [...meetings, { ...event, id: Date.now().toString() }];
+    setMeetings(updatedMeetings);
+    setIsAdding(false);
+    setEditingMeeting(null);
+    setSelectedMeeting(null);
+  };
+
+  const handleDeleteEvent = (id: string) => {
+    setMeetings(meetings.filter(m => m.id !== id));
+    setIsAdding(false);
+    setEditingMeeting(null);
+    setSelectedMeeting(null);
+  };
+
+  const handleCancelEdit = () => {
+    setIsAdding(false);
+    setEditingMeeting(null);
+    setSelectedMeeting(null);
+  };
+
+  const handleMeetingClick = (meeting: MeetingRoom) => {
+    setSelectedMeeting(meeting);
+    setEditingMeeting(null);
+    setIsAdding(false);
+  };
+
+  const handleEditClick = (meeting: MeetingRoom) => {
+    setEditingMeeting(meeting);
+    setSelectedMeeting(null);
+    setIsAdding(true);
+  };
+
   return (
-    <div className="calendar-container">
-      <h1>📅 Weekly Calendar</h1>
-      <div className="week-controls">
-        <Button text="← Previous" onClick={() => changeWeek('prev')} />
-        <Button text="Next →" onClick={() => changeWeek('next')} />
+    <div className="calendar-page-container">
+      <div className="calendar-main-content">
+        <div className="calendar-container">
+          <h1>📅 Weekly Calendar</h1>
+          <div className="week-controls">
+            <Button text="← Previous" onClick={() => changeWeek('prev')} />
+            <Button text="Next →" onClick={() => changeWeek('next')} />
+          </div>
+          <CalendarTable
+            weekStart={weekStart}
+            meetings={meetings}
+            onAddMeeting={(date, hour) => {
+              setEditingMeeting({
+                id: '',
+                title: '',
+                date: getDateString(date),
+                startTime: hour,
+                endTime: calculateEndTime(hour, 1),
+                duration: 1,
+                host: '',
+                attendees: [],
+                description: '',
+                location: ''
+              });
+              setIsAdding(true);
+              setSelectedMeeting(null);
+            }}
+            onMeetingClick={handleMeetingClick}
+          />
+        </div>
+
+        <Sidebar
+          selectedMeeting={selectedMeeting}
+          isAdding={isAdding}
+          editingMeeting={editingMeeting}
+          onEditClick={handleEditClick}
+          onDelete={handleDeleteEvent}
+          onCancel={handleCancelEdit}
+          onSave={handleSaveEvent}
+        />
       </div>
-
-      <table className="calendar-table">
-        <thead>
-          <TableHeader weekStart={weekStart} />
-        </thead>
-        <tbody>
-          {HOURS.map(hour => (
-            <TableRow
-              key={hour}
-              hour={hour}
-              weekStart={weekStart}
-              meetings={meetings}
-              onAddMeeting={(date, h) => addMeeting(date, h, meetings, setMeetings)}
-              onMeetingClick={setSelectedMeeting}
-            />
-          ))}
-        </tbody>
-      </table>
-
-      {selectedMeeting && <Modal meeting={selectedMeeting} onClose={() => setSelectedMeeting(null)} />}
     </div>
   );
 }
-
-export default CalendarPage;

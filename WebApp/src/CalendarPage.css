@@ -1,115 +1,196 @@
-.calendar-container {
+/* ========== General Page ========== */
+.calendar-page-container {
+  display: flex;
+  flex-direction: column;
   padding: 20px;
-  font-family: 'Inter', sans-serif;
-  background: #e0f2ff;
+  font-family: 'Arial', sans-serif;
+  background-color: #f5f5f5;
   min-height: 100vh;
 }
 
-h1 {
-  text-align: center;
-  color: #1e3a8a;
+.calendar-main-content {
+  display: flex;
+  gap: 20px;
 }
 
+/* ========== Calendar Container ========== */
+.calendar-container {
+  flex: 2;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: 20px;
+}
+
+h1 {
+  margin-bottom: 20px;
+  font-size: 28px;
+}
+
+/* ========== Week Controls ========== */
 .week-controls {
   display: flex;
-  justify-content: center;
-  margin-bottom: 16px;
-  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
-.btn {
-  background-color: #3b82f6;
-  color: white;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-.btn:hover {
-  background-color: #2563eb;
-}
-
+/* ========== Table Styles ========== */
 .calendar-table {
   width: 100%;
   border-collapse: collapse;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
 }
 
-th, td {
-  border: 1px solid #60a5fa;
-  padding: 8px;
+.calendar-table th,
+.calendar-table td {
+  border: 1px solid #ddd;
+  padding: 10px;
   text-align: center;
+  min-width: 120px;
 }
 
-.th-time {
-  background: #1e40af;
-  color: white;
-  width: 70px;
-}
-
-.th-day {
-  background: #3b82f6;
-  color: white;
-}
-
-.td-time {
-  background: #bfdbfe;
+.calendar-table th {
+  background-color: #f0f0f0;
   font-weight: 600;
 }
 
-.td-cell {
-  height: 70px;
+.td-time {
+  background-color: #f0f0f0;
+  font-weight: bold;
+}
+
+/* ========== Cells ========== */
+.td-cell.empty {
+  background-color: #fafafa;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .td-cell.empty:hover {
-  background-color: #93c5fd;
+  background-color: #e0f7fa;
 }
 
 .td-cell.occupied {
-  background-color: #1d4ed8;
-  color: white;
+  background-color: #b2ebf2;
+  cursor: pointer;
+  position: relative;
 }
 
+/* Meeting block inside cell */
 .meeting-block {
-  padding: 4px;
-  background-color: #2563eb;
+  background-color: #00acc1;
+  color: white;
+  padding: 5px 8px;
   border-radius: 6px;
-  font-size: 0.85rem;
-  text-align: left;
-  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.modal {
-  border: none;
+/* ========== Sidebar ========== */
+.sidebar {
+  flex: 1;
+  background-color: #fff;
   border-radius: 12px;
-  padding: 0;
-  max-width: 400px;
-  width: 90%;
-}
-
-.modal-content {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   padding: 20px;
-  background: #3b82f6;
-  color: white;
-  border-radius: 12px;
+  min-width: 280px;
+  max-width: 350px;
+  height: fit-content;
+}
+
+.add-event-btn {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+/* Selected Event Details */
+.selected-event-details h2 {
+  margin-bottom: 10px;
+  font-size: 22px;
+}
+
+.selected-event-details p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.event-actions {
+  margin-top: 10px;
   display: flex;
-  flex-direction: column;
   gap: 10px;
 }
 
-.modal-content h2 {
-  margin: 0;
+/* ========== Buttons ========== */
+.btn {
+  background-color: #00acc1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 14px;
 }
 
-.modal-content button {
-  align-self: flex-end;
-  background: white;
-  color: #1e3a8a;
+.btn:hover {
+  background-color: #0097a7;
+}
+
+.btn.primary {
+  background-color: #007c91;
+}
+
+.btn.primary:hover {
+  background-color: #006064;
+}
+
+.btn.delete {
+  background-color: #e53935;
+}
+
+.btn.delete:hover {
+  background-color: #c62828;
+}
+
+/* ========== Form Styles ========== */
+.event-form-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.event-form-container h2 {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.form-group {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
 }
