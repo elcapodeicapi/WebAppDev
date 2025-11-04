@@ -1,0 +1,32 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "WebApp", "WebApp", "{7E50A06F-A38B-7BE7-1137-409223B8AEF0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Backend", "Backend", "{C0D77B32-1471-73FB-0E42-821A14C99D44}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebAppDev.AuthApi", "WebApp\Backend\CSharpApi\WebAppDev.AuthApi.csproj", "{4F2E8C4B-20D2-586A-AFA5-2D9A5127225B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4F2E8C4B-20D2-586A-AFA5-2D9A5127225B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4F2E8C4B-20D2-586A-AFA5-2D9A5127225B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4F2E8C4B-20D2-586A-AFA5-2D9A5127225B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4F2E8C4B-20D2-586A-AFA5-2D9A5127225B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C0D77B32-1471-73FB-0E42-821A14C99D44} = {7E50A06F-A38B-7BE7-1137-409223B8AEF0}
+		{4F2E8C4B-20D2-586A-AFA5-2D9A5127225B} = {C0D77B32-1471-73FB-0E42-821A14C99D44}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E4382477-7EFD-49DF-AA0D-01BB282DE9BE}
+	EndGlobalSection
+EndGlobal

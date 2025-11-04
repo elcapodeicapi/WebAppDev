@@ -1,42 +1,34 @@
 import '../App.css';
 import Navbar from '../components/NavBar';
-// ==========================
-// Google Login (commented out)
-// import { initializeApp, getApps } from 'firebase/app';
-// import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-// ==========================
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { apiPost, type AuthResponse } from '../lib/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
-  // ==========================
-  // Firebase config (commented out)
-  // const firebaseConfig = {
-  //   apiKey: 'YOUR_API_KEY',
-  //   authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-  //   projectId: 'YOUR_PROJECT_ID',
-  //   appId: 'YOUR_APP_ID',
-  // };
-
-  // if (!getApps().length) {
-  //   initializeApp(firebaseConfig);
-  // }
-
-  // const auth = getAuth();
-  // const provider = new GoogleAuthProvider();
-
-  // const handleGoogleLogin = async () => {
-  //   try {
-  //     const res = await signInWithPopup(auth, provider);
-  //     console.log('Signed in:', res.user?.email);
-  //     navigate('/dashboard'); // adjust destination as needed
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert('Google sign-in failed');
-  //   }
-  // };
-  // ==========================
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setMessage(null);
+    setLoading(true);
+    try {
+      const res = await apiPost<
+        { email: string; password: string },
+        AuthResponse
+      >('/api/auth/login', { email, password });
+      setMessage(res.message || 'Login successful');
+      // Very basic: navigate to dashboard/home on success
+      navigate('/');
+    } catch (err: any) {
+      setMessage(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="homepage">
@@ -46,6 +38,7 @@ export default function LoginPage() {
         <div className="homepage-text">
           <h1>Login</h1>
           <form
+            onSubmit={onSubmit}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -53,12 +46,28 @@ export default function LoginPage() {
               maxWidth: '400px',
             }}
           >
-            <input type="email" placeholder="Email" required />
-            <input type="password" placeholder="Password" required />
-            <button className="primary" type="submit">
-              Login
+            <input
+              type="email"
+              placeholder="Email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button className="primary" type="submit" disabled={loading}>
+              {loading ? 'Logging in…' : 'Login'}
             </button>
           </form>
+
+          {message && (
+            <p style={{ marginTop: '0.5rem', color: '#374151' }}>{message}</p>
+          )}
 
           {/* Divider */}
           <div
@@ -74,15 +83,7 @@ export default function LoginPage() {
             <span style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
           </div>
 
-          {/* Google Sign-In (commented out) */}
-          {/* <button
-            type="button"
-            onClick={handleGoogleLogin}
-            className="primary"
-            style={{ background: '#fff', color: '#000', border: '1px solid #e5e7eb' }}
-          >
-            Continue with Google
-          </button> */}
+        
 
           {/* ✅ Register link below form */}
           <p style={{ marginTop: '1rem' }}>
