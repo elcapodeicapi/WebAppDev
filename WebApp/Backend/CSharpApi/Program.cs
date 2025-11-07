@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using WebAppDev.AuthApi.Data;
-using WebAppDev.AuthApi.Seed;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
