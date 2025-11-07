@@ -1,3 +1,4 @@
+using System.Diagnostics.Eventing.Reader;
 using Microsoft.EntityFrameworkCore;
 
 namespace WebAppDev.AuthApi.Data;
@@ -19,8 +20,11 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.Entity<User>()
-            .HasIndex(u => u.Email)
-            .IsUnique();
+        modelBuilder.Entity<GroupsMembership>()
+            .HasKey(g => new { g.GroupId, g.UserId });
+        modelBuilder.Entity<RoomBookings>()
+            .HasKey(r => new { r.RoomId, r.UserId });
+        modelBuilder.Entity<EventParticipation>()
+            .HasKey(e => new { e.EventId, e.UserId });
     }
 }
