@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using WebAppDev.AuthApi.Data;
-using WebAppDev.AuthApi.Models;
 using WebAppDev.AuthApi.Services;
 
 namespace WebAppDev.AuthApi.Seed;
@@ -22,7 +21,7 @@ public static class DbInitializer
             PasswordHasher.CreatePasswordHash(password, out var hash, out var salt);
             db.Users.Add(new User
             {
-                FullName = fullName,
+                Name = fullName,
                 Email = email,
                 PasswordHash = hash,
                 PasswordSalt = salt
