@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebAppDev.AuthApi.Data;
 using WebAppDev.AuthApi.DTOs;
-using WebAppDev.AuthApi.Models;
 using WebAppDev.AuthApi.Services;
 
 namespace WebAppDev.AuthApi.Controllers;
@@ -36,7 +35,7 @@ public class AuthController : ControllerBase
 
         var user = new User
         {
-            FullName = request.FullName,
+            Name = request.FullName,
             Email = request.Email,
             PasswordHash = hash,
             PasswordSalt = salt
@@ -51,7 +50,7 @@ public class AuthController : ControllerBase
             Message = "Registered successfully",
             UserId = user.Id,
             Email = user.Email,
-            FullName = user.FullName
+            FullName = user.Name
         });
     }
 
@@ -81,7 +80,7 @@ public class AuthController : ControllerBase
             Message = "Login successful",
             UserId = user.Id,
             Email = user.Email,
-            FullName = user.FullName
+            FullName = user.Name
         });
     }
 }
