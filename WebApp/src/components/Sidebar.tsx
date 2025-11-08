@@ -2,12 +2,12 @@
 import type { JSX } from 'react';
 import type { MeetingRoom } from '../MockedData/MockedData';
 import { AddEditEventForm } from './AddEditEventForm';
-import { Button } from './Button';
 
 interface SidebarProps {
   selectedMeeting: MeetingRoom | null;
   isAdding: boolean;
   editingMeeting: MeetingRoom | null;
+  onAddClick: () => void;
   onEditClick: (meeting: MeetingRoom) => void;
   onDelete: (id: string) => void;
   onCancel: () => void;
@@ -18,21 +18,18 @@ export function Sidebar({
   selectedMeeting,
   isAdding,
   editingMeeting,
+  onAddClick,
   onEditClick,
   onDelete,
   onCancel,
   onSave
 }: SidebarProps): JSX.Element {
-
-  const handleAddClick = () => {
-    onCancel(); // reset previous selections
-  };
-
   return (
     <div className="sidebar">
       {isAdding || editingMeeting ? (
         <AddEditEventForm
           event={editingMeeting || undefined}
+          isAdding={isAdding}
           onSave={onSave}
           onCancel={onCancel}
           onDelete={editingMeeting ? onDelete : undefined}
@@ -52,7 +49,7 @@ export function Sidebar({
           </div>
         </div>
       ) : (
-        <button className="btn primary add-event-btn" onClick={handleAddClick}>
+        <button className="btn primary add-event-btn" onClick={onAddClick}>
           Add New Event
         </button>
       )}

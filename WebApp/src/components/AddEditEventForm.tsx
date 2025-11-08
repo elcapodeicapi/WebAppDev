@@ -6,12 +6,13 @@ import { HOURS, calculateEndTime } from './constants';
 
 interface AddEditEventFormProps {
   event?: MeetingRoom;
+  isAdding: boolean; // 👈 toegevoegd
   onSave: (event: MeetingRoom) => void;
   onCancel: () => void;
   onDelete?: (id: string) => void;
 }
 
-export function AddEditEventForm({ event, onSave, onCancel, onDelete }: AddEditEventFormProps): JSX.Element {
+export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }: AddEditEventFormProps): JSX.Element {
   const [title, setTitle] = useState(event?.title || '');
   const [date, setDate] = useState(event?.date || '');
   const [startTime, setStartTime] = useState(event?.startTime || HOURS[0]);
@@ -40,7 +41,7 @@ export function AddEditEventForm({ event, onSave, onCancel, onDelete }: AddEditE
 
   return (
     <div className="event-form-container">
-      <h2>{event ? 'Edit Event' : 'Add New Event'}</h2>
+      <h2>{isAdding ? 'Add New Event' : 'Edit Event'}</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Title:</label>
@@ -79,7 +80,9 @@ export function AddEditEventForm({ event, onSave, onCancel, onDelete }: AddEditE
         <div className="form-actions">
           <button type="submit" className="btn primary">Save</button>
           <button type="button" className="btn" onClick={onCancel}>Cancel</button>
-          {event && onDelete && <button type="button" className="btn delete" onClick={() => onDelete(event.id)}>Delete</button>}
+          {!isAdding && event && onDelete && (
+            <button type="button" className="btn delete" onClick={() => onDelete(event.id)}>Delete</button>
+          )}
         </div>
       </form>
     </div>
