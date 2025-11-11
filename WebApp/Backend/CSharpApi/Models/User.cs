@@ -10,12 +10,12 @@ public class User
 
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    [Required, MaxLength(100)]
+    public string Username { get; set; } = string.Empty;
 
-    public string PhoneNumber { get; set; }
+    public string? PhoneNumber { get; set; }
 
-    public string JobTitle { get; set; }
-
-    public string Rol { get; set; }
+    public string? JobTitle { get; set; }
 
     [Required]
     public byte[] PasswordHash { get; set; } = Array.Empty<byte>();
@@ -24,4 +24,7 @@ public class User
     public byte[] PasswordSalt { get; set; } = Array.Empty<byte>();
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [Required, MaxLength(32)]
+    public string Role { get; set; } = "Employee"; // Admin | Employee
 }

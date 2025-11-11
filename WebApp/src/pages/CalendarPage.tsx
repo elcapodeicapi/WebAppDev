@@ -6,6 +6,7 @@ import { Sidebar } from '../components/Sidebar';
 import { Button } from '../components/Button';
 import { getDateString, calculateEndTime } from '../components/constants';
 import '../CalendarPage.css';
+import Navbar from '../components/NavBar';
 
 export default function CalendarPage() {
   // ---- STATE ----
@@ -76,6 +77,7 @@ export default function CalendarPage() {
 
   return (
     <div className="calendar-page-container">
+      <Navbar />
       <div className="calendar-main-content">
         <div className="calendar-container">
           <h1>📅 Weekly Calendar</h1>

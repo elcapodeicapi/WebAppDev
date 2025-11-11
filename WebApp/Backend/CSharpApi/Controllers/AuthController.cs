@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebAppDev.AuthApi.Data;
 using WebAppDev.AuthApi.DTOs;
+using WebAppDev.AuthApi.Models;
 using WebAppDev.AuthApi.Services;
 
 namespace WebAppDev.AuthApi.Controllers;
@@ -11,10 +12,12 @@ namespace WebAppDev.AuthApi.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly AuthService _auth;
 
-    public AuthController(AppDbContext db)
+    public AuthController(AppDbContext db, AuthService auth)
     {
         _db = db;
+        _auth = auth;
     }
 
     [HttpPost("register")]
@@ -24,34 +27,13 @@ public class AuthController : ControllerBase
         {
             return BadRequest(new AuthResponse { Success = false, Message = "Invalid input" });
         }
-
-        var exists = await _db.Users.AnyAsync(u => u.Email == request.Email);
-        if (exists)
+        var resp = await _auth.RegisterAsync(request);
+        if (!resp.Success)
         {
-            return Conflict(new AuthResponse { Success = false, Message = "Email already in use" });
+            if (resp.Message.Contains("in use", StringComparison.OrdinalIgnoreCase)) return Conflict(resp);
+            return BadRequest(resp);
         }
-
-        PasswordHasher.CreatePasswordHash(request.Password, out var hash, out var salt);
-
-        var user = new User
-        {
-            Name = request.FullName,
-            Email = request.Email,
-            PasswordHash = hash,
-            PasswordSalt = salt
-        };
-
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
-
-        return Ok(new AuthResponse
-        {
-            Success = true,
-            Message = "Registered successfully",
-            UserId = user.Id,
-            Email = user.Email,
-            FullName = user.Name
-        });
+        return Ok(resp);
     }
 
     [HttpPost("login")]
@@ -61,26 +43,25 @@ public class AuthController : ControllerBase
         {
             return BadRequest(new AuthResponse { Success = false, Message = "Invalid input" });
         }
+        var resp = await _auth.LoginAsync(request);
+        if (!resp.Success) return Unauthorized(resp);
+        return Ok(resp);
+    }
 
-        var user = await _db.Users.SingleOrDefaultAsync(u => u.Email == request.Email);
-        if (user is null)
-        {
-            return Unauthorized(new AuthResponse { Success = false, Message = "Invalid email or password" });
-        }
+    [HttpGet("session")]
+    public async Task<ActionResult<object>> GetSession([FromQuery] string sid)
+    {
+        var (active, adminName) = await _auth.GetSessionAsync(sid);
+        if (!active) return Ok(new { active = false });
+        if (!string.IsNullOrEmpty(adminName)) return Ok(new { active = true, adminName });
+        return Ok(new { active = true });
+    }
 
-        var ok = PasswordHasher.VerifyPassword(request.Password, user.PasswordHash, user.PasswordSalt);
-        if (!ok)
-        {
-            return Unauthorized(new AuthResponse { Success = false, Message = "Invalid email or password" });
-        }
-
-        return Ok(new AuthResponse
-        {
-            Success = true,
-            Message = "Login successful",
-            UserId = user.Id,
-            Email = user.Email,
-            FullName = user.Name
-        });
+    [HttpPost("logout")]
+    public async Task<ActionResult> Logout([FromBody] string sid)
+    {
+        if (string.IsNullOrWhiteSpace(sid)) return BadRequest();
+        await _auth.LogoutAsync(sid);
+        return NoContent();
     }
 }

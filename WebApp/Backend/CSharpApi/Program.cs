@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WebAppDev.AuthApi.Data;
 using WebAppDev.AuthApi.Seed;
 using Microsoft.OpenApi.Models;
+using WebAppDev.AuthApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,8 +34,9 @@ builder.Services.AddCors(options =>
 });
 
 // EF Core with SQLite
-var connectionString = builder.Configuration.GetConnectionString("Default") ?? "Data Source=auth.db";
+var connectionString = builder.Configuration.GetConnectionString("Default") ?? "Data Source=WebAPI.db";
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
+builder.Services.AddScoped<AuthService>();
 
 var app = builder.Build();
 

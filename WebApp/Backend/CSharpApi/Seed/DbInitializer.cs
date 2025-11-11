@@ -10,21 +10,24 @@ public static class DbInitializer
     {
         if (await db.Users.AnyAsync()) return;
 
-        var users = new List<(string fullName, string email, string password)>
+            var users = new List<(string name, string username, string email, string password, string role)>
         {
-            ("John Doe", "test@example.com", "Password123!"),
-            ("Jane Smith", "jane@example.com", "Secret123!")
+                ("Alice Admin", "alice", "admin@example.com", "AdminPass123!", "Admin"),
+                ("Evan Employee", "evan", "evan@example.com", "Employee123!", "Employee"),
+                ("Emma Employee", "emma", "emma@example.com", "Employee123!", "Employee")
         };
 
-        foreach (var (fullName, email, password) in users)
+            foreach (var (name, username, email, password, role) in users)
         {
             PasswordHasher.CreatePasswordHash(password, out var hash, out var salt);
             db.Users.Add(new User
             {
-                Name = fullName,
+        Name = name,
+                    Username = username,
                 Email = email,
                 PasswordHash = hash,
-                PasswordSalt = salt
+        PasswordSalt = salt,
+        Role = role
             });
         }
 

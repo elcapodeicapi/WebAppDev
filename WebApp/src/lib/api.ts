@@ -6,6 +6,18 @@ export type AuthResponse = {
   userId?: number;
   email?: string;
   fullName?: string;
+  role?: string;
+  sessionId?: string;
+};
+
+export type UserSession = {
+  active: boolean;
+  user?: {
+    id: number;
+    email: string;
+    fullName: string;
+    role: string;
+  };
 };
 
 export async function apiPost<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
@@ -17,6 +29,19 @@ export async function apiPost<TReq, TRes>(path: string, body: TReq): Promise<TRe
   const data = (await res.json()) as TRes;
   if (!res.ok) {
     // try to surface server message
+    const msg = (data as any)?.message || `Request failed with ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+export async function apiGet<TRes>(path: string): Promise<TRes> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'GET',
+    credentials: 'include'
+  });
+  const data = (await res.json()) as TRes;
+  if (!res.ok) {
     const msg = (data as any)?.message || `Request failed with ${res.status}`;
     throw new Error(msg);
   }
