@@ -14,7 +14,7 @@ export type AuthState = {
   loading: boolean;
   initializing: boolean;
   message: string | null;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (username: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
 
@@ -40,8 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const session = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5217'}/api/auth/session?sid=${encodeURIComponent(parsed.sessionId)}`);
               if (session.ok) {
                 const data = await session.json();
-                if (data?.active && data?.user) {
-                  setUser({ id: data.user.id, email: data.user.email, fullName: data.user.fullName, role: data.user.role });
+                if (data?.active) {
+                  if (parsed.user) setUser(parsed.user);
                   setSessionId(parsed.sessionId);
                 } else {
                   localStorage.removeItem('auth');
@@ -63,13 +63,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     init();
   }, []);
 
-  async function login(email: string, password: string) {
+  async function login(username: string, password: string) {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await apiPost<{ email: string; password: string }, AuthResponse>(
+      const res = await apiPost<{ username: string; password: string }, AuthResponse>(
         '/api/auth/login',
-        { email, password }
+        { username, password }
       );
       if (!res.success || !res.userId || !res.email || !res.fullName) {
         throw new Error(res.message || 'Login failed');

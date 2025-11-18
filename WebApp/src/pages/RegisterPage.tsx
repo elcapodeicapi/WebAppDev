@@ -5,6 +5,7 @@ import { apiPost, type AuthResponse } from '../lib/api';
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,11 +17,12 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const res = await apiPost<
-        { fullName: string; email: string; password: string },
+        { fullName: string; username: string; email: string; password: string },
         AuthResponse
-      >('/api/auth/register', { fullName, email, password });
+      >('/api/auth/register', { fullName, username, email, password });
       setMessage(res.message || 'Registered successfully');
       setFullName('');
+      setUsername('');
       setEmail('');
       setPassword('');
     } catch (err: any) {
@@ -42,6 +44,13 @@ export default function RegisterPage() {
               placeholder="Full Name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
+              required
+            />
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
             <input
