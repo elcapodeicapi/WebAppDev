@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { apiPost, type AuthResponse } from '../lib/api';
+import { apiPost, type AuthResponse, API_BASE_URL } from '../lib/api';
 
 export type AuthUser = {
   id: number;
@@ -37,7 +37,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // validate with backend
           if (parsed.sessionId) {
             try {
-              const session = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5217'}/api/auth/session?sid=${encodeURIComponent(parsed.sessionId)}`);
+              // Use API_BASE_URL so the same proxy/setting is used consistently
+              const session = await fetch(`${API_BASE_URL}/api/auth/session?sid=${encodeURIComponent(parsed.sessionId)}`);
               if (session.ok) {
                 const data = await session.json();
                 if (data?.active) {

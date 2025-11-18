@@ -5,15 +5,22 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Frontend dev server runs on the default 5173 so the app is served at
+    // http://localhost:5173; API is proxied to the backend on 5000.
+    port: 5173,
     proxy: {
-      // Proxy the swagger UI and JSON from the backend so you can open
-      // http://localhost:5173/swagger and see the API docs served by the API.
       '/swagger': {
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
-        // keep the path as-is so /swagger and /swagger/v1/swagger.json map correctly
         rewrite: (path) => path.replace(/^\/swagger/, '/swagger')
+      },
+      // Proxy API calls under /api (if you use that pattern). Example:
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/api')
       }
     }
   }

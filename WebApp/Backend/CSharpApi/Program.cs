@@ -27,6 +27,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(ClientCorsPolicy, policy =>
     {
+        // Frontend dev server runs on 5173 (Vite default). Allow that origin for dev.
         policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod();

@@ -27,7 +27,7 @@ export default function Navbar() {
       {/* Center: Nav links */}
       <div className="navbar-center">
         <Link to="/home">Home</Link>
-        <Link to="/dashboard">My Profile</Link>
+          <Link to="/profile">My Profile</Link>
         <Link to="/calendar">Calendar</Link> {/* ✅ new page */}
       </div>
 

@@ -4,6 +4,7 @@ import LoginPage from './LoginPage';
 import RegisterPage from './RegisterPage';
 import CalenderPage from './CalendarPage';
 import Dashboard from './Dashboard';
+import ProfilePage from './ProfilePage';
 import EventsPage from './EventsPage';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { AuthProvider } from '../context/AuthContext';
@@ -47,11 +48,18 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/" element={<LoginPage />} />
         </Routes>
       </Router>
     </AuthProvider>
   );
 }
-
 export default App;
