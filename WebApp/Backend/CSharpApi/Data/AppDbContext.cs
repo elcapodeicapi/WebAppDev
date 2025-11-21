@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Rooms> Rooms => Set<Rooms>();
+    public DbSet<RoomBookings> RoomBookings => Set<RoomBookings>();
     public DbSet<Groups> Groups => Set<Groups>();
     public DbSet<Session> Sessions => Set<Session>();
 

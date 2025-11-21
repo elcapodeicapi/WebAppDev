@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"dotnet run --project ./Backend/CSharpApi --urls http://localhost:5000\" \"vite\" --names \"API,FRONT\" --prefix name --kill-others",
+    "dev": "concurrently \"dotnet run --project ./Backend/CSharpApi --urls http://localhost:5001\" \"vite\" --names \"API,FRONT\" --prefix name --kill-others",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

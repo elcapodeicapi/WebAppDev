@@ -43,6 +43,7 @@ public class AuthService
             Success = true,
             Message = "Registered successfully",
             UserId = user.Id,
+            Username = user.Username,
             Email = user.Email,
             FullName = user.Name,
             Role = user.Role
@@ -80,6 +81,7 @@ public class AuthService
             Success = true,
             Message = "Login successful",
             UserId = user.Id,
+            Username = user.Username,
             Email = user.Email,
             FullName = user.Name,
             Role = user.Role,
@@ -102,5 +104,48 @@ public class AuthService
         if (s is null) return;
         _db.Sessions.Remove(s);
         await _db.SaveChangesAsync();
+    }
+
+    public async Task<AuthResponse> UpdateProfileAsync(UpdateProfileRequest request)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.SessionId))
+            return new AuthResponse { Success = false, Message = "Missing session" };
+
+        var session = await _db.Sessions.Include(s => s.User).SingleOrDefaultAsync(s => s.Id == request.SessionId);
+        if (session == null || session.User == null)
+            return new AuthResponse { Success = false, Message = "Invalid session" };
+
+        var user = session.User;
+
+        if (!string.IsNullOrWhiteSpace(request.Username) && !string.Equals(request.Username, user.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            var existsU = await _db.Users.AnyAsync(u => u.Username == request.Username && u.Id != user.Id);
+            if (existsU) return new AuthResponse { Success = false, Message = "Username already in use" };
+            user.Username = request.Username;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Email) && !string.Equals(request.Email, user.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            var exists = await _db.Users.AnyAsync(u => u.Email == request.Email && u.Id != user.Id);
+            if (exists) return new AuthResponse { Success = false, Message = "Email already in use" };
+            user.Email = request.Email;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.FullName)) user.Name = request.FullName;
+        user.PhoneNumber = request.PhoneNumber;
+        user.JobTitle = request.JobTitle;
+
+        await _db.SaveChangesAsync();
+
+        return new AuthResponse
+        {
+            Success = true,
+            Message = "Profile updated",
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            FullName = user.Name,
+            Role = user.Role
+        };
     }
 }

@@ -10,14 +10,14 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/swagger': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:5001',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/swagger/, '/swagger')
       },
       // Proxy API calls under /api (if you use that pattern). Example:
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:5001',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/api')
