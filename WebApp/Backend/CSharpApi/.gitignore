@@ -1,3 +1,6 @@
 /bin
 /obj
 /auth.db
+*.db
+*.db-shm
+*.db-wal

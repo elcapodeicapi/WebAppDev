@@ -76,10 +76,10 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="calendar-page-container">
+    <div className="calendar-page-container" style={{ color: '#000' }}>
       <Navbar />
       <div className="calendar-main-content">
-        <div className="calendar-container">
+        <div className="calendar-container" style={{ color: '#000' }}>
           <h1>📅 Weekly Calendar</h1>
 
           <div className="week-controls">

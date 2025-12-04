@@ -72,7 +72,7 @@ public class AuthService
             return new AuthResponse { Success = false, Message = "Invalid credentials" };
         }
 
-        var session = new Session { UserId = user.Id };
+        var session = new Session { UserId = user.Id, ExpiresAt = DateTime.UtcNow.AddHours(8), LastActivityUtc = DateTime.UtcNow };
         _db.Sessions.Add(session);
         await _db.SaveChangesAsync();
 
@@ -94,6 +94,13 @@ public class AuthService
         if (string.IsNullOrWhiteSpace(sid)) return (false, null);
         var session = await _db.Sessions.Include(s => s.User).SingleOrDefaultAsync(s => s.Id == sid);
         if (session is null || session.User is null) return (false, null);
+        if (session.Revoked || session.ExpiresAt <= DateTime.UtcNow) return (false, null);
+        // sliding expiration: update LastActivity and extend expiry by up to 8 hours window
+        session.LastActivityUtc = DateTime.UtcNow;
+        var newExpiry = DateTime.UtcNow.AddHours(8);
+        // cap sliding to max of newExpiry
+        session.ExpiresAt = newExpiry;
+        await _db.SaveChangesAsync();
         var isAdmin = string.Equals(session.User.Role, "Admin", StringComparison.OrdinalIgnoreCase);
         return (true, isAdmin ? session.User.Name : null);
     }
@@ -102,7 +109,7 @@ public class AuthService
     {
         var s = await _db.Sessions.FindAsync(sid);
         if (s is null) return;
-        _db.Sessions.Remove(s);
+        s.Revoked = true;
         await _db.SaveChangesAsync();
     }
 

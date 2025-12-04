@@ -29,6 +29,7 @@ export default function Navbar() {
         <Link to="/home">Home</Link>
           <Link to="/profile">My Profile</Link>
         <Link to="/calendar">Calendar</Link> {/* ✅ new page */}
+        {user && <Link to="/my-friends">My Friends</Link>}
       </div>
 
       {/* Right: Login button */}

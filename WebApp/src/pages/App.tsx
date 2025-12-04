@@ -6,6 +6,8 @@ import CalenderPage from './CalendarPage';
 import Dashboard from './Dashboard';
 import ProfilePage from './ProfilePage';
 import EventsPage from './EventsPage';
+import MyFriends from './MyFriends';
+import FriendDetailPage from './FriendDetail';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { AuthProvider } from '../context/AuthContext';
 
@@ -53,6 +55,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-friends"
+            element={
+              <ProtectedRoute>
+                <MyFriends />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/friend/:id"
+            element={
+              <ProtectedRoute>
+                <FriendDetailPage />
               </ProtectedRoute>
             }
           />

@@ -4,6 +4,7 @@ using WebAppDev.AuthApi.Data;
 using WebAppDev.AuthApi.DTOs;
 using WebAppDev.AuthApi.Models;
 using WebAppDev.AuthApi.Services;
+using WebAppDev.AuthApi.Filters;
 
 namespace WebAppDev.AuthApi.Controllers;
 
@@ -18,6 +19,17 @@ public class AuthController : ControllerBase
     {
         _db = db;
         _auth = auth;
+    }
+
+    private string? GetSessionId()
+    {
+        // Prefer HttpOnly cookie
+        var cookieSid = Request.Cookies["sid"];
+        if (!string.IsNullOrWhiteSpace(cookieSid)) return cookieSid;
+        // Fallback to header (e.g., for non-cookie clients)
+        var headerSid = Request.Headers["X-Session-Id"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(headerSid)) return headerSid;
+        return null;
     }
 
     [HttpPost("register")]
@@ -45,12 +57,26 @@ public class AuthController : ControllerBase
         }
         var resp = await _auth.LoginAsync(request);
         if (!resp.Success) return Unauthorized(resp);
+        // Set HttpOnly cookie with session id
+        if (!string.IsNullOrEmpty(resp.SessionId))
+        {
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = false, // set true behind HTTPS in production
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTime.UtcNow.AddHours(8)
+            };
+            Response.Cookies.Append("sid", resp.SessionId, cookieOptions);
+            // Do not expose session id back to client if strict; keep current shape but client should ignore
+        }
         return Ok(resp);
     }
 
     [HttpGet("session")]
-    public async Task<ActionResult<object>> GetSession([FromQuery] string sid)
+    public async Task<ActionResult<object>> GetSession()
     {
+        var sid = GetSessionId() ?? string.Empty;
         var (active, adminName) = await _auth.GetSessionAsync(sid);
         if (!active) return Ok(new { active = false });
         if (!string.IsNullOrEmpty(adminName)) return Ok(new { active = true, adminName });
@@ -58,16 +84,21 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("logout")]
-    public async Task<ActionResult> Logout([FromBody] string sid)
+    public async Task<ActionResult> Logout()
     {
+        var sid = GetSessionId();
         if (string.IsNullOrWhiteSpace(sid)) return BadRequest();
         await _auth.LogoutAsync(sid);
+        // Clear cookie
+        Response.Cookies.Delete("sid");
         return NoContent();
     }
 
     [HttpPost("profile")]
     public async Task<ActionResult<AuthResponse>> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
+        // Always resolve session from cookie/header, ignore body SessionId
+        request.SessionId = GetSessionId();
         var resp = await _auth.UpdateProfileAsync(request);
         if (!resp.Success)
         {
@@ -86,14 +117,12 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("bookings")]
-    public async Task<ActionResult<IEnumerable<BookingDto>>> GetBookings([FromQuery] string sid)
+    [SessionRequired]
+    public async Task<ActionResult<IEnumerable<BookingDto>>> GetBookings()
     {
-        if (string.IsNullOrWhiteSpace(sid)) return Unauthorized();
-
-        var session = await _db.Sessions.Include(s => s.User).SingleOrDefaultAsync(s => s.Id == sid);
-        if (session == null || session.User == null) return Unauthorized();
-
-        var userId = session.User.Id;
+        var userIdObj = HttpContext.Items["UserId"];
+        if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
 
         var bookings = await _db.RoomBookings
             .Where(rb => rb.UserId == userId && rb.BookingDate >= DateTime.Today)

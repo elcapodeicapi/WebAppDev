@@ -36,26 +36,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (raw) {
           const parsed = JSON.parse(raw) as { user: AuthUser; sessionId: string };
           // validate with backend
-          if (parsed.sessionId) {
-            try {
-              // Use API_BASE_URL so the same proxy/setting is used consistently
-              const session = await fetch(`${API_BASE_URL}/api/auth/session?sid=${encodeURIComponent(parsed.sessionId)}`);
-              if (session.ok) {
-                const data = await session.json();
-                if (data?.active) {
-                  if (parsed.user) setUser(parsed.user);
-                  setSessionId(parsed.sessionId);
-                } else {
-                  localStorage.removeItem('auth');
-                }
+          // Prefer cookie-based session check; this endpoint will read cookie
+          try {
+            const session = await fetch(`${API_BASE_URL}/api/auth/session`, { credentials: 'include' });
+            if (session.ok) {
+              const data = await session.json();
+              if (data?.active) {
+                if (parsed.user) setUser(parsed.user);
               } else {
                 localStorage.removeItem('auth');
               }
-            } catch {
-              // network error; keep local state as best effort
-              setUser(parsed.user);
-              setSessionId(parsed.sessionId);
+            } else {
+              localStorage.removeItem('auth');
             }
+          } catch {
+            // network error; fall back to local user as best effort
+            if (parsed.user) setUser(parsed.user);
           }
         }
       } finally {
@@ -81,7 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const u: AuthUser = { id: res.userId, email: res.email, fullName: res.fullName, username: res.username, role };
       setUser(u);
       setSessionId(sid);
-      localStorage.setItem('auth', JSON.stringify({ user: u, sessionId: sid }));
+      // Store only user locally; session token is HttpOnly cookie
+      localStorage.setItem('auth', JSON.stringify({ user: u }));
       setMessage(res.message || 'Login successful');
       return u;
     } catch (e: any) {
@@ -98,7 +95,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function logout() {
     setLoading(true);
     try {
-      // Optional: await apiPost('/api/auth/logout', { sessionId });
+      // Body is optional; server prefers cookie. Send empty object.
+      await apiPost('/api/auth/logout', {});
     } finally {
       setUser(null);
       setSessionId(null);

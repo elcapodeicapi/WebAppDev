@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<RoomBookings> RoomBookings => Set<RoomBookings>();
     public DbSet<Groups> Groups => Set<Groups>();
     public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
 
     // Removed OnConfiguring override to allow connection string from DI (Program.cs)
 
@@ -36,6 +37,20 @@ public class AppDbContext : DbContext
             .HasOne(s => s.User)
             .WithMany()
             .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Friendship>()
+            .HasIndex(f => new { f.UserId, f.FriendId })
+            .IsUnique();
+        modelBuilder.Entity<Friendship>()
+            .HasOne<User>()
+            .WithMany()
+            .HasForeignKey(f => f.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Friendship>()
+            .HasOne<User>()
+            .WithMany()
+            .HasForeignKey(f => f.FriendId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

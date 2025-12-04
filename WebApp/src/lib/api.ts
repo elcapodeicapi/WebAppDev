@@ -6,6 +6,7 @@ export type AuthResponse = {
   success: boolean;
   message: string;
   userId?: number;
+  username?: string;
   email?: string;
   fullName?: string;
   role?: string;
@@ -29,6 +30,7 @@ export async function apiPost<TReq, TRes>(path: string, body: TReq): Promise<TRe
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      credentials: 'include',
     });
   } catch (err: any) {
     throw new Error(err?.message || 'Network error while making request');

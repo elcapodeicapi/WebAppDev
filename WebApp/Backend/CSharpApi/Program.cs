@@ -3,6 +3,7 @@ using WebAppDev.AuthApi.Data;
 using WebAppDev.AuthApi.Seed;
 using Microsoft.OpenApi.Models;
 using WebAppDev.AuthApi.Services;
+using WebAppDev.AuthApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,7 +31,8 @@ builder.Services.AddCors(options =>
         // Frontend dev server runs on 5173 (Vite default). Allow that origin for dev.
         policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -49,6 +51,9 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger"; // UI at /swagger
 });
 app.UseCors(ClientCorsPolicy);
+
+// Session cookie middleware
+app.UseMiddleware<SessionMiddleware>();
 
 app.MapControllers();
 
