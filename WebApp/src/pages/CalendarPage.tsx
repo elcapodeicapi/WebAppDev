@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { generateMockMeetings } from '../MockedData/MockedData';
+import { useState, useEffect } from 'react';
 import type { MeetingRoom } from '../MockedData/MockedData';
 import { CalendarTable } from '../components/CalendarTable';
 import { Sidebar } from '../components/Sidebar';
 import { Button } from '../components/Button';
 import { getDateString, calculateEndTime } from '../components/constants';
+import { apiGet, apiDelete } from '../lib/api';
 import '../CalendarPage.css';
 import Navbar from '../components/NavBar';
 
@@ -18,10 +18,52 @@ export default function CalendarPage() {
     return sunday;
   });
 
-  const [meetings, setMeetings] = useState<MeetingRoom[]>(generateMockMeetings());
+  const [meetings, setMeetings] = useState<MeetingRoom[]>([]);
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingRoom | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<MeetingRoom | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Fetch events from API on component mount
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        const response = await apiGet<any[]>('/api/events');
+        // Map backend response to MeetingRoom format
+        const mapped = response.map((evt: any) => {
+          const eventDateTime = new Date(evt.eventDate);
+          
+          // Extract time from eventDate as "H AM/PM" format
+          const hours = eventDateTime.getHours();
+          const isAM = hours < 12;
+          const displayHour = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+          const startTimeStr = `${displayHour} ${isAM ? 'AM' : 'PM'}`;
+          
+          return {
+            id: evt.id.toString(),
+            title: evt.title,
+            date: eventDateTime.toISOString().split('T')[0], // YYYY-MM-DD
+            startTime: startTimeStr,
+            endTime: calculateEndTime(startTimeStr, evt.durationHours),
+            duration: evt.durationHours,
+            host: evt.host,
+            attendees: evt.attendees ? evt.attendees.split(',').map((s: string) => s.trim()) : [],
+            description: evt.description,
+            location: evt.location
+          };
+        });
+        setMeetings(mapped);
+      } catch (err: any) {
+        console.error('Failed to fetch events:', err);
+        setError('Failed to load events');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvents();
+  }, []);
 
   // ---- WEEK NAVIGATION ----
   const changeWeek = (dir: 'next' | 'prev') => {
@@ -39,22 +81,81 @@ export default function CalendarPage() {
   };
 
   const handleSaveEvent = (event: MeetingRoom) => {
-    const exists = meetings.some(m => m.id === event.id);
-    const updatedMeetings = exists
-      ? meetings.map(m => (m.id === event.id ? event : m))
-      : [...meetings, { ...event, id: Date.now().toString() }];
-
-    setMeetings(updatedMeetings);
+    // Event was already saved to backend in AddEditEventForm
+    // Refresh the events list to show the newly created event
+    const fetchEvents = async () => {
+      try {
+        const response = await apiGet<any[]>('/api/events');
+        const mapped = response.map((evt: any) => {
+          const eventDateTime = new Date(evt.eventDate);
+          const hours = eventDateTime.getHours();
+          const isAM = hours < 12;
+          const displayHour = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+          const startTimeStr = `${displayHour} ${isAM ? 'AM' : 'PM'}`;
+          
+          return {
+            id: evt.id.toString(),
+            title: evt.title,
+            date: eventDateTime.toISOString().split('T')[0],
+            startTime: startTimeStr,
+            endTime: calculateEndTime(startTimeStr, evt.durationHours),
+            duration: evt.durationHours,
+            host: evt.host,
+            attendees: evt.attendees ? evt.attendees.split(',').map((s: string) => s.trim()) : [],
+            description: evt.description,
+            location: evt.location
+          };
+        });
+        setMeetings(mapped);
+      } catch (err) {
+        console.error('Failed to refresh events:', err);
+      }
+    };
+    fetchEvents();
     setIsAdding(false);
     setEditingMeeting(null);
     setSelectedMeeting(null);
   };
 
   const handleDeleteEvent = (id: string) => {
-    setMeetings(meetings.filter(m => m.id !== id));
-    setIsAdding(false);
-    setEditingMeeting(null);
-    setSelectedMeeting(null);
+    const confirmed = window.confirm('Are you sure you want to delete this event?');
+    if (!confirmed) return;
+
+    const deleteEvent = async () => {
+      try {
+        await apiDelete(`/api/events/${id}`);
+        // Refresh events list
+        const response = await apiGet<any[]>('/api/events');
+        const mapped = response.map((evt: any) => {
+          const eventDateTime = new Date(evt.eventDate);
+          const hours = eventDateTime.getHours();
+          const isAM = hours < 12;
+          const displayHour = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+          const startTimeStr = `${displayHour} ${isAM ? 'AM' : 'PM'}`;
+          
+          return {
+            id: evt.id.toString(),
+            title: evt.title,
+            date: eventDateTime.toISOString().split('T')[0],
+            startTime: startTimeStr,
+            endTime: calculateEndTime(startTimeStr, evt.durationHours),
+            duration: evt.durationHours,
+            host: evt.host,
+            attendees: evt.attendees ? evt.attendees.split(',').map((s: string) => s.trim()) : [],
+            description: evt.description,
+            location: evt.location
+          };
+        });
+        setMeetings(mapped);
+        setSelectedMeeting(null);
+        setEditingMeeting(null);
+        setIsAdding(false);
+      } catch (err) {
+        console.error('Failed to delete event:', err);
+        alert('Failed to delete event');
+      }
+    };
+    deleteEvent();
   };
 
   const handleCancelEdit = () => {
@@ -78,6 +179,8 @@ export default function CalendarPage() {
   return (
     <div className="calendar-page-container" style={{ color: '#000' }}>
       <Navbar />
+      {error && <div style={{ color: 'red', padding: '1rem' }}>{error}</div>}
+      {loading && <div style={{ padding: '1rem' }}>Loading events...</div>}
       <div className="calendar-main-content">
         <div className="calendar-container" style={{ color: '#000' }}>
           <h1>📅 Weekly Calendar</h1>

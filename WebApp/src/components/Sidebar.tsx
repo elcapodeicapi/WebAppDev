@@ -1,7 +1,19 @@
 // src/components/Sidebar.tsx
 import type { JSX } from 'react';
-import type { MeetingRoom } from '../MockedData/MockedData';
 import { AddEditEventForm } from './AddEditEventForm';
+
+interface MeetingRoom {
+  id: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  host: string;
+  attendees: string[];
+  description: string;
+  location: string;
+}
 
 interface SidebarProps {
   selectedMeeting: MeetingRoom | null;

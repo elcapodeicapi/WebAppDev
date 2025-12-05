@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WebAppDev.AuthApi.Data;
 
@@ -10,9 +11,11 @@ using WebAppDev.AuthApi.Data;
 namespace WebAppDev.AuthApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251205113529_AddEvents")]
+    partial class AddEvents
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
@@ -42,10 +45,6 @@ namespace WebAppDev.AuthApi.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Attendees")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<int>("CreatedBy")
                         .HasColumnType("INTEGER");
 
@@ -53,18 +52,7 @@ namespace WebAppDev.AuthApi.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("DurationHours")
-                        .HasColumnType("INTEGER");
-
                     b.Property<DateTime>("EventDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Host")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Title")

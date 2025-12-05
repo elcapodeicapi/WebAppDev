@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Groups> Groups => Set<Groups>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<Events> Events => Set<Events>();
 
     // Removed OnConfiguring override to allow connection string from DI (Program.cs)
 

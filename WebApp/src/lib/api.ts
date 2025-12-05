@@ -63,3 +63,51 @@ export async function apiGet<TRes>(path: string): Promise<TRes> {
   }
   return data;
 }
+
+export async function apiPut<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include',
+    });
+  } catch (err: any) {
+    throw new Error(err?.message || 'Network error while making request');
+  }
+
+  if (!res.ok) {
+    let msg = `Request failed with ${res.status}`;
+    try {
+      const data = await res.json();
+      msg = (data as any)?.message || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  if (res.status === 204) return {} as TRes; // No content
+  const data = (await res.json()) as TRes;
+  return data;
+}
+
+export async function apiDelete(path: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+  } catch (err: any) {
+    throw new Error(err?.message || 'Network error while making request');
+  }
+
+  if (!res.ok) {
+    let msg = `Request failed with ${res.status}`;
+    try {
+      const data = await res.json();
+      msg = (data as any)?.message || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+}
