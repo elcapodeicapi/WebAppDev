@@ -20,6 +20,11 @@ namespace WebAppDev.AuthApi.Migrations
                     Title = table.Column<string>(type: "TEXT", nullable: false),
                     Description = table.Column<string>(type: "TEXT", nullable: false),
                     EventDate = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    DurationHours = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 1),
+                    Host = table.Column<string>(type: "TEXT", nullable: false, defaultValue: ""),
+                    Attendees = table.Column<string>(type: "TEXT", nullable: false, defaultValue: ""),
+                    Location = table.Column<string>(type: "TEXT", nullable: false, defaultValue: ""),
+                    EndTime = table.Column<DateTime>(type: "TEXT", nullable: false),
                     CreatedBy = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
