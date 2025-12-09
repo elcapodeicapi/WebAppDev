@@ -1,11 +1,14 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import NavBar from '../components/NavBar';
 import '../App.css';
+import '../CalendarPage.css';
 import { useAuth } from '../context/AuthContext';
 import { apiPost, apiGet } from '../lib/api';
 
 const ProfilePage: React.FC = () => {
   const { user, initializing } = useAuth();
+  const navigate = useNavigate();
   const [editing, setEditing] = React.useState(false);
   const [form, setForm] = React.useState({ fullName: user?.fullName ?? '', username: (user as any)?.username ?? '', email: user?.email ?? '', phoneNumber: (user as any)?.phoneNumber ?? '', jobTitle: (user as any)?.jobTitle ?? '' });
   const [events, setEvents] = React.useState<Array<any> | null>(null);
@@ -46,7 +49,7 @@ const ProfilePage: React.FC = () => {
     return (
       <div>
         <NavBar />
-        <main className="profile-container">Geen ingelogde gebruiker gevonden. Log in om je profiel te zien.</main>
+        <main className="profile-container">No logged-in user found. Please log in to view your profile.</main>
       </div>
     );
   }
@@ -54,6 +57,33 @@ const ProfilePage: React.FC = () => {
   const initials = user.fullName
     ? user.fullName.split(' ').map(s => s[0]).slice(0,2).join('').toUpperCase()
     : (user.email || '').slice(0,2).toUpperCase();
+
+  const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
+
+  const eventsByDate = React.useMemo(() => {
+    const map: Record<string, Array<any>> = {};
+    (events || []).forEach(e => {
+      const d = new Date(e.eventDate);
+      const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+      if (!map[key]) map[key] = [];
+      map[key].push(e);
+    });
+    return map;
+  }, [events]);
+
+  const selectedEvents = React.useMemo(() => {
+    if (!selectedDate) return [];
+    return eventsByDate[selectedDate] || [];
+  }, [selectedDate, eventsByDate]);
+
+  React.useEffect(() => {
+    if (!selectedDate && events && events.length > 0) {
+      const first = events[0];
+      const d = new Date(first.eventDate);
+      const key = d.toISOString().slice(0, 10);
+      setSelectedDate(key);
+    }
+  }, [events, selectedDate]);
 
 
   
@@ -94,10 +124,11 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="calendar-page-container">
       <NavBar />
-      <main className="profile-container" style={styles.container}>
-        <section className="profile-card" style={styles.profileCard}>
+      <div className="calendar-main-content">
+        <div className="calendar-container" style={styles.container}>
+          {/* Dashboard header */}
           <div className="profile-header" style={styles.profileHeader}>
             <div className="profile-avatar avatar-initials" style={styles.avatar}>{initials}</div>
             <div style={styles.headerInfo}>
@@ -106,49 +137,200 @@ const ProfilePage: React.FC = () => {
               <p style={styles.email}>{user.email}</p>
               <p style={styles.role}>Role: {user.role}</p>
             </div>
-            <button className="primary" style={styles.editButton} onClick={() => setEditing(!editing)}>{editing ? 'Cancel' : 'Edit Profile'}</button>
+            <div style={styles.headerActions}>
+              <button
+                className="primary"
+                style={styles.editButton}
+                onClick={() => setEditing(!editing)}
+              >
+                {editing ? 'Cancel' : 'Edit Profile'}
+              </button>
+              <button
+                style={styles.eventsButton}
+                onClick={() => navigate('/events')}
+              >
+                View all events
+              </button>
+            </div>
           </div>
 
+          {/* Main content */}
           {editing ? (
             <div style={styles.editForm}>
               <h2 style={styles.sectionTitle}>Edit Profile</h2>
-              <input style={styles.input} placeholder="Full name" value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
-              <input style={styles.input} placeholder="Username" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} />
-              <input style={styles.input} placeholder="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-              <input style={styles.input} placeholder="Phone number" value={form.phoneNumber} onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))} />
-              <input style={styles.input} placeholder="Job title" value={form.jobTitle} onChange={e => setForm(f => ({ ...f, jobTitle: e.target.value }))} />
-              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <div style={styles.formGrid}>
+                <div style={styles.formColumn}>
+                  <label style={styles.label}>Full name</label>
+                  <input
+                    style={styles.input}
+                    value={form.fullName}
+                    onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+                  />
+
+                  <label style={styles.label}>Username</label>
+                  <input
+                    style={styles.input}
+                    value={form.username}
+                    onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                  />
+
+                  <label style={styles.label}>Email</label>
+                  <input
+                    style={styles.input}
+                    type="email"
+                    value={form.email}
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+                <div style={styles.formColumn}>
+                  <label style={styles.label}>Phone number</label>
+                  <input
+                    style={styles.input}
+                    value={form.phoneNumber}
+                    onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))}
+                  />
+
+                  <label style={styles.label}>Job title</label>
+                  <input
+                    style={styles.input}
+                    value={form.jobTitle}
+                    onChange={e => setForm(f => ({ ...f, jobTitle: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
                 <button className="primary" style={styles.saveButton} onClick={() => saveProfile()}>Save Changes</button>
                 <button style={styles.cancelButton} onClick={() => setEditing(false)}>Cancel</button>
               </div>
             </div>
           ) : (
-            <>
-              <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Upcoming Events</h2>
+            <div style={styles.sectionRow}>
+              {/* Left: calendar and upcoming events */}
+              <div style={styles.sectionCalendar}>
+                <h2 style={styles.sectionTitle}>Upcoming events</h2>
                 {events === null ? (
                   <div>Loading events…</div>
                 ) : events.length === 0 ? (
                   <div>No events planned.</div>
                 ) : (
-                  <ul style={styles.list}>
-                    {events.map((e, i) => (
-                      <li key={i} style={styles.listItem}>
-                        <div style={styles.itemHeader}>{e.title} — {new Date(e.eventDate).toLocaleDateString()}</div>
-                        <div>{e.description}</div>
-                        {e.location ? <div style={styles.itemDetails}>Location: {e.location}</div> : null}
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    {/* Small month calendar */}
+                    <div style={styles.miniCalendar}>
+                      {(() => {
+                        const today = new Date();
+                        const year = today.getFullYear();
+                        const monthIndex = today.getMonth();
+                        const firstDay = new Date(year, monthIndex, 1).getDay();
+                        const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+                        const weeks: Array<Array<number | null>> = [];
+                        let currentDay = 1;
+                        let currentWeek: Array<number | null> = [];
+
+                        for (let i = 0; i < firstDay; i++) {
+                          currentWeek.push(null);
+                        }
+                        while (currentDay <= daysInMonth) {
+                          currentWeek.push(currentDay);
+                          if (currentWeek.length === 7) {
+                            weeks.push(currentWeek);
+                            currentWeek = [];
+                          }
+                          currentDay++;
+                        }
+                        if (currentWeek.length > 0) {
+                          while (currentWeek.length < 7) currentWeek.push(null);
+                          weeks.push(currentWeek);
+                        }
+
+                        const monthLabel = today.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+
+                        return (
+                          <>
+                            <div style={styles.miniCalendarHeader}>{monthLabel}</div>
+                            <div style={styles.miniCalendarGrid}>
+                              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
+                                <div key={d} style={{ ...styles.miniCalendarDay, fontWeight: 600, color: '#555' }}>{d}</div>
+                              ))}
+                              {weeks.map((week, wi) =>
+                                week.map((day, di) => {
+                                  if (!day) {
+                                    return <div key={`${wi}-${di}`} style={styles.miniCalendarDay} />;
+                                  }
+                                  const dateObj = new Date(year, monthIndex, day);
+                                  const key = dateObj.toISOString().slice(0, 10);
+                                  const hasEvent = !!eventsByDate[key];
+                                  const isSelected = selectedDate === key;
+                                  return (
+                                    <button
+                                      key={`${wi}-${di}`}
+                                      style={{
+                                        ...styles.miniCalendarDay,
+                                        ...(hasEvent ? styles.miniCalendarDayHasEvent : {}),
+                                        ...(isSelected ? styles.miniCalendarDaySelected : {}),
+                                      }}
+                                      onClick={() => hasEvent && setSelectedDate(key)}
+                                      disabled={!hasEvent}
+                                    >
+                                      {day}
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Details for selected day */}
+                    <div style={{ marginTop: '1rem' }}>
+                      <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Events on selected day</h3>
+                      {selectedEvents.length === 0 ? (
+                        <div style={{ fontSize: '0.9rem', color: '#666' }}>Select a highlighted day to see its events.</div>
+                      ) : (
+                        <ul style={styles.list}>
+                          {selectedEvents.map((e, i) => {
+                            const start = new Date(e.eventDate);
+                            const end = new Date(start.getTime() + (e.durationHours || 0) * 60 * 60 * 1000);
+                            return (
+                              <li key={i} style={styles.listItem}>
+                                <div style={styles.itemHeader}>{e.title}</div>
+                                <div style={styles.itemMeta}>{start.toLocaleString()} {e.durationHours ? `— ${end.toLocaleString()}` : ''}</div>
+                                <div>{e.description}</div>
+                                {e.location ? <div style={styles.itemDetails}>Location: {e.location}</div> : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </>
                 )}
+                <button
+                  style={styles.secondaryLinkButton}
+                  onClick={() => navigate('/events')}
+                >
+                  View all events
+                </button>
               </div>
-            </>
+              {/* Right: profile details (slightly narrower) */}
+              <div style={styles.sectionProfile}>
+                <h2 style={styles.sectionTitle}>Profile details</h2>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Full name</span><span>{user.fullName}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Username</span><span>@{(user as any).username ?? '—'}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Email</span><span>{user.email}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Phone</span><span>{(user as any).phoneNumber ?? '—'}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Job title</span><span>{(user as any).jobTitle ?? '—'}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Role</span><span>{user.role}</span></div>
+              </div>
+            </div>
           )}
-        </section>
-      </main>
+        </div>
+      </div>
     </div>
   );
-};
+}
 
 export default ProfilePage;
 
@@ -168,6 +350,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   profileHeader: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: '1.5rem',
     borderBottom: '1px solid #e0e0e0',
     paddingBottom: '1.5rem',
@@ -206,14 +389,29 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#333',
     fontWeight: 500,
   },
+  headerActions: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+    alignItems: 'flex-end',
+  },
   editButton: {
-    marginLeft: 'auto',
     padding: '0.5rem 1rem',
     backgroundColor: '#007bff',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
+    fontWeight: 500,
+  },
+  eventsButton: {
+    padding: '0.4rem 0.9rem',
+    backgroundColor: 'transparent',
+    color: '#007bff',
+    border: '1px solid #007bff',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
   },
   editForm: {
     display: 'flex',
@@ -242,18 +440,26 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: '4px',
     cursor: 'pointer',
   },
-  statsContainer: {
-    display: 'flex',
-    justifyContent: 'space-around',
-    padding: '1rem 0',
-    borderBottom: '1px solid #e0e0e0',
-    marginBottom: '1.5rem',
-  },
-  stat: {
-    textAlign: 'center',
-  },
   section: {
     marginTop: '1.5rem',
+  },
+  sectionRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '2rem',
+    marginTop: '1.5rem',
+  },
+  sectionHalf: {
+    flex: 1,
+    minWidth: '260px',
+  },
+  sectionCalendar: {
+    flex: 1.3,
+    minWidth: '280px',
+  },
+  sectionProfile: {
+    flex: 0.9,
+    minWidth: '240px',
   },
   sectionTitle: {
     fontSize: '1.5rem',
@@ -274,8 +480,86 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 600,
     marginBottom: '0.25rem',
   },
+  itemMeta: {
+    fontSize: '0.9rem',
+    color: '#666',
+    marginBottom: '0.25rem',
+  },
   itemDetails: {
     color: '#555',
     fontSize: '0.9rem',
+  },
+  formGrid: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '1.5rem',
+  },
+  formColumn: {
+    flex: 1,
+    minWidth: '240px',
+  },
+  label: {
+    display: 'block',
+    marginBottom: '0.25rem',
+    fontSize: '0.9rem',
+    color: '#555',
+    fontWeight: 500,
+  },
+  detailRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '0.4rem 0',
+    borderBottom: '1px solid #f7f7f7',
+    fontSize: '0.95rem',
+  },
+  detailLabel: {
+    color: '#777',
+  },
+  secondaryLinkButton: {
+    marginTop: '0.75rem',
+    padding: '0.4rem 0.75rem',
+    background: 'none',
+    border: 'none',
+    color: '#007bff',
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    fontSize: '0.9rem',
+    textAlign: 'left',
+  },
+  miniCalendar: {
+    borderRadius: '8px',
+    border: '1px solid #e0e0e0',
+    padding: '0.75rem',
+    backgroundColor: '#fafafa',
+  },
+  miniCalendarHeader: {
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    marginBottom: '0.5rem',
+  },
+  miniCalendarGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: '0.25rem',
+    fontSize: '0.8rem',
+  },
+  miniCalendarDay: {
+    border: 'none',
+    borderRadius: '4px',
+    padding: '0.25rem 0',
+    backgroundColor: 'transparent',
+    textAlign: 'center',
+    cursor: 'default',
+    fontSize: '0.8rem',
+  },
+  miniCalendarDayHasEvent: {
+    cursor: 'pointer',
+    border: '1px solid #007bff',
+    backgroundColor: '#e7f1ff',
+  },
+  miniCalendarDaySelected: {
+    backgroundColor: '#007bff',
+    color: '#fff',
+    fontWeight: 600,
   },
 };
