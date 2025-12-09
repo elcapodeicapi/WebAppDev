@@ -21,9 +21,9 @@ interface SidebarProps {
   editingMeeting: MeetingRoom | null;
   onAddClick: () => void;
   onEditClick: (meeting: MeetingRoom) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string | number) => void;
   onCancel: () => void;
-  onSave: (event: MeetingRoom) => void;
+  onSave: () => void;
 }
 
 export function Sidebar({

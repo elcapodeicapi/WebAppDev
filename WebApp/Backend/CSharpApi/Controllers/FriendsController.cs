@@ -46,6 +46,7 @@ namespace WebAppDev.AuthApi.Controllers
             public string Username { get; set; } = string.Empty;
             public bool Online { get; set; }
             public bool SameBooking { get; set; }
+            public bool SameEvent { get; set; }
         }
 
         [HttpGet]
@@ -83,11 +84,23 @@ namespace WebAppDev.AuthApi.Controllers
                 .Select(rb => new { rb.UserId, rb.RoomId, rb.StartTime, rb.EndTime })
                 .ToListAsync();
 
+            // Today's events overlap determination
+            var myTodayEvents = await _db.Events
+                .Where(e => e.EventParticipation.Any(p => p.UserId == userId) && e.EventDate.Date == today)
+                .Select(e => new { e.EventDate, EndTime = e.EventDate.AddHours(e.DurationHours) })
+                .ToListAsync();
+
+            var friendsTodayEvents = await _db.Events
+                .Where(e => e.EventParticipation.Any(p => friendIds.Contains(p.UserId)) && e.EventDate.Date == today)
+                .Select(e => new { e.EventDate, EndTime = e.EventDate.AddHours(e.DurationHours), UserIds = e.EventParticipation.Select(p => p.UserId) })
+                .ToListAsync();
+
             var result = new List<FriendInfoDto>();
             foreach (var f in friends)
             {
                 var online = onlineIds.Contains(f.Id);
                 bool same = false;
+                bool sameEvent = false;
                 foreach (var mb in myBookings)
                 {
                     foreach (var fb in friendBookings.Where(b => b.UserId == f.Id))
@@ -100,7 +113,20 @@ namespace WebAppDev.AuthApi.Controllers
                     }
                     if (same) break;
                 }
-                result.Add(new FriendInfoDto { Id = f.Id, Username = f.Username, Online = online, SameBooking = same });
+                if (!sameEvent && myTodayEvents.Count > 0)
+                {
+                    var friendEvents = friendsTodayEvents.Where(e => e.UserIds.Contains(f.Id)).ToList();
+                    foreach (var me in myTodayEvents)
+                    {
+                        foreach (var fe in friendEvents)
+                        {
+                            if (me.EventDate < fe.EndTime && fe.EventDate < me.EndTime) { sameEvent = true; break; }
+                        }
+                        if (sameEvent) break;
+                    }
+                }
+
+                result.Add(new FriendInfoDto { Id = f.Id, Username = f.Username, Online = online, SameBooking = same, SameEvent = sameEvent });
             }
 
             return Ok(result);
@@ -132,6 +158,8 @@ namespace WebAppDev.AuthApi.Controllers
             public bool Online { get; set; }
             public IEnumerable<object> UpcomingBookings { get; set; } = Array.Empty<object>();
             public bool SharesBookingToday { get; set; }
+            public IEnumerable<object> UpcomingEvents { get; set; } = Array.Empty<object>();
+            public bool SharesEventToday { get; set; }
         }
 
         [HttpGet("detail/{id:int}")]
@@ -167,13 +195,43 @@ namespace WebAppDev.AuthApi.Controllers
                 .Select(rb => new { rb.RoomId, rb.BookingDate, StartTime = rb.StartTime.ToString(), EndTime = rb.EndTime.ToString() })
                 .ToListAsync();
 
+            // Event overlap and upcoming events
+            var myTodayEvents2 = await _db.Events
+                .Where(e => e.EventParticipation.Any(p => p.UserId == userId) && e.EventDate.Date == today)
+                .Select(e => new { e.EventDate, EndTime = e.EventDate.AddHours(e.DurationHours) })
+                .ToListAsync();
+
+            var friendTodayEvents = await _db.Events
+                .Where(e => e.EventParticipation.Any(p => p.UserId == id) && e.EventDate.Date == today)
+                .Select(e => new { e.EventDate, EndTime = e.EventDate.AddHours(e.DurationHours) })
+                .ToListAsync();
+
+            bool sharesEventToday = false;
+            foreach (var me in myTodayEvents2)
+            {
+                foreach (var fe in friendTodayEvents)
+                {
+                    if (me.EventDate < fe.EndTime && fe.EventDate < me.EndTime) { sharesEventToday = true; break; }
+                }
+                if (sharesEventToday) break;
+            }
+
+            var upcomingEvents = await _db.Events
+                .Where(e => e.EventParticipation.Any(p => p.UserId == id) && e.EventDate >= today)
+                .OrderBy(e => e.EventDate)
+                .Take(10)
+                .Select(e => new { e.Id, e.Title, Start = e.EventDate, End = e.EventDate.AddHours(e.DurationHours), e.Location })
+                .ToListAsync();
+
             return Ok(new FriendDetailDto
             {
                 Id = friend.Id,
                 Username = friend.Username,
                 Online = online,
                 SharesBookingToday = sharesToday,
-                UpcomingBookings = upcoming
+                UpcomingBookings = upcoming,
+                SharesEventToday = sharesEventToday,
+                UpcomingEvents = upcomingEvents
             });
         }
     }

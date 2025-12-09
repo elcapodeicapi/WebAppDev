@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using WebAppDev.AuthApi.Data;
 using WebAppDev.AuthApi.Models;
 using WebAppDev.AuthApi.DTOs;
+using WebAppDev.AuthApi.Filters;
 
 namespace WebAppDev.AuthApi.Controllers;
 
@@ -15,6 +16,36 @@ public class EventsController : ControllerBase
     public EventsController(AppDbContext db)
     {
         _db = db;
+    }
+
+    // GET: api/events/mine - events I'm participating in
+    [HttpGet("mine")]
+    [SessionRequired]
+    public async Task<ActionResult<IEnumerable<Events>>> GetMine()
+    {
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+        var list = await _db.Events
+            .Include(e => e.EventParticipation)
+            .Where(e => e.EventParticipation.Any(p => p.UserId == userId))
+            .OrderBy(e => e.EventDate)
+            .ToListAsync();
+        return Ok(list);
+    }
+
+    // GET: api/events/invited - events where I'm invited
+    [HttpGet("invited")]
+    [SessionRequired]
+    public async Task<ActionResult<IEnumerable<Events>>> GetInvited()
+    {
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+        var list = await _db.Events
+            .Include(e => e.EventParticipation)
+            .Where(e => e.EventParticipation.Any(p => p.UserId == userId && p.Status == "Invited"))
+            .OrderBy(e => e.EventDate)
+            .ToListAsync();
+        return Ok(list);
     }
 
     // GET: api/events
@@ -40,6 +71,7 @@ public class EventsController : ControllerBase
 
     // POST: api/events
     [HttpPost]
+    [SessionRequired]
     public async Task<ActionResult<Events>> Create([FromBody] CreateEventRequest req)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -71,8 +103,40 @@ public class EventsController : ControllerBase
             Host = req.Host,
             Attendees = req.Attendees,
             Location = req.Location,
-            CreatedBy = 0
+            CreatedBy = (int)(HttpContext.Items["UserId"] ?? 0)
         };
+
+        // Ensure creator is a participant (Host)
+        if (evt.CreatedBy > 0)
+        {
+            _db.Set<EventParticipation>().Add(new EventParticipation
+            {
+                Event = evt,
+                UserId = evt.CreatedBy,
+                Status = "Host"
+            });
+        }
+
+        // Optionally add attendees from comma-separated usernames as Invited
+        if (!string.IsNullOrWhiteSpace(req.Attendees))
+        {
+            var usernames = req.Attendees.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => s.Trim()).ToArray();
+            if (usernames.Length > 0)
+            {
+                var users = await _db.Users.Where(u => usernames.Contains(u.Username)).ToListAsync();
+                foreach (var u in users)
+                {
+                    if (u.Id == evt.CreatedBy) continue;
+                    _db.Set<EventParticipation>().Add(new EventParticipation
+                    {
+                        Event = evt,
+                        UserId = u.Id,
+                        Status = "Invited"
+                    });
+                }
+            }
+        }
 
         _db.Events.Add(evt);
         await _db.SaveChangesAsync();
@@ -82,6 +146,7 @@ public class EventsController : ControllerBase
 
     // PUT: api/events/{id}
     [HttpPut("{id}")]
+    [SessionRequired]
     public async Task<IActionResult> Update(int id, [FromBody] CreateEventRequest req)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -131,6 +196,7 @@ public class EventsController : ControllerBase
 
     // DELETE: api/events/{id}
     [HttpDelete("{id}")]
+    [SessionRequired]
     public async Task<IActionResult> Delete(int id)
     {
         var evt = await _db.Events.FindAsync(id);
@@ -138,5 +204,56 @@ public class EventsController : ControllerBase
         _db.Events.Remove(evt);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    public class ParticipationRequest { public string Status { get; set; } = "Going"; }
+
+    // POST: api/events/{id}/participation
+    [HttpPost("{id}/participation")]
+    [SessionRequired]
+    public async Task<ActionResult> SetParticipation(int id, [FromBody] ParticipationRequest body)
+    {
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+        var evt = await _db.Events.FindAsync(id);
+        if (evt == null) return NotFound();
+
+        var part = await _db.Set<EventParticipation>().SingleOrDefaultAsync(p => p.EventId == id && p.UserId == userId);
+        if (part == null)
+        {
+            part = new EventParticipation { EventId = id, UserId = userId, Status = body.Status };
+            _db.Set<EventParticipation>().Add(part);
+        }
+        else
+        {
+            part.Status = body.Status;
+        }
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true });
+    }
+
+    // DELETE: api/events/{id}/participation
+    [HttpDelete("{id}/participation")]
+    [SessionRequired]
+    public async Task<ActionResult> RemoveParticipation(int id)
+    {
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+        var part = await _db.Set<EventParticipation>().SingleOrDefaultAsync(p => p.EventId == id && p.UserId == userId);
+        if (part == null) return NotFound();
+        _db.Remove(part);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    // GET: api/events/{id}/participants
+    [HttpGet("{id}/participants")]
+    public async Task<ActionResult<IEnumerable<object>>> GetParticipants(int id)
+    {
+        var list = await _db.Set<EventParticipation>()
+            .Where(p => p.EventId == id)
+            .Join(_db.Users, p => p.UserId, u => u.Id, (p, u) => new { u.Id, u.Username, p.Status })
+            .ToListAsync();
+        return Ok(list);
     }
 }

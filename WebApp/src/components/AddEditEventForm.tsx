@@ -1,8 +1,9 @@
 // src/components/AddEditEventForm.tsx
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
 import { HOURS } from './constants';
-import { apiPost, apiPut } from '../lib/api';
+import { apiGet, apiPost, apiPut } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 interface EventResponse {
   id: number;
@@ -35,12 +36,13 @@ type EventData = EventResponse | MeetingRoom;
 interface AddEditEventFormProps {
   event?: EventData;
   isAdding: boolean;
-  onSave: (event: EventData) => void;
+  onSave: () => void;
   onCancel: () => void;
   onDelete?: (id: string | number) => void;
 }
 
 export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }: AddEditEventFormProps): JSX.Element {
+  const { user } = useAuth();
   // Helper to extract date from either EventResponse or MeetingRoom
   const getDateValue = () => {
     if (!event) return '';
@@ -91,12 +93,33 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
   const [date, setDate] = useState(getDateValue());
   const [startTime, setStartTime] = useState(getStartTimeValue());
   const [duration, setDuration] = useState(getDurationValue());
-  const [host, setHost] = useState(event?.host || '');
-  const [attendees, setAttendees] = useState(getAttendeesValue());
+  // Host is always the logged-in user (no input field)
+  const host = user?.username || user?.fullName || '';
+  // Fetch users for attendee selection
+  type UserLite = { id: number; username: string; fullName: string };
+  const [users, setUsers] = useState<UserLite[]>([]);
+  const initialAttendees = useMemo<string[]>(() => {
+    const att = getAttendeesValue();
+    if (!att) return [];
+    return att.split(',').map(s => s.trim()).filter(Boolean);
+  }, []);
+  const [selectedAttendees, setSelectedAttendees] = useState<string[]>(initialAttendees);
   const [description, setDescription] = useState(event?.description || '');
   const [location, setLocation] = useState(event?.location || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const list = await apiGet<UserLite[]>('/api/users');
+        setUsers(list);
+      } catch {
+        // ignore silently; UI will show no users
+      }
+    }
+    loadUsers();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,7 +133,7 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         startTime,
         durationHours: duration,
         host,
-        attendees,
+        attendees: selectedAttendees.join(','),
         description,
         location
       };
@@ -123,8 +146,8 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         await apiPost('/api/events', payload);
       }
       
-      // Refresh by calling the onSave callback which will refresh events
-      onSave({ ...event, ...payload } as any);
+      // Notify parent to refresh events
+      onSave();
     } catch (err: any) {
       setError(err.message || 'Failed to save event');
     } finally {
@@ -157,11 +180,31 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         </div>
         <div className="form-group">
           <label>Host:</label>
-          <input type="text" value={host} onChange={e => setHost(e.target.value)} required />
+          <input type="text" value={host} readOnly disabled />
         </div>
         <div className="form-group">
-          <label>Attendees (comma separated):</label>
-          <input type="text" value={attendees} onChange={e => setAttendees(e.target.value)} />
+          <label>Attendees:</label>
+          <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #ddd', padding: 8, borderRadius: 4 }}>
+            {users.length === 0 ? (
+              <div style={{ color: '#777' }}>No users available</div>
+            ) : (
+              users.map(u => (
+                <label key={u.id} style={{ display: 'block', marginBottom: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedAttendees.includes(u.username)}
+                    onChange={(e) => {
+                      setSelectedAttendees(prev => {
+                        if (e.target.checked) return Array.from(new Set([...prev, u.username]));
+                        return prev.filter(x => x !== u.username);
+                      });
+                    }}
+                  />
+                  <span style={{ marginLeft: 8 }}>{u.fullName} ({u.username})</span>
+                </label>
+              ))
+            )}
+          </div>
         </div>
         <div className="form-group">
           <label>Description:</label>

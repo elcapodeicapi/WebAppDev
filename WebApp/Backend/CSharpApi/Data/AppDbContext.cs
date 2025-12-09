@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<Events> Events => Set<Events>();
+    public DbSet<EventParticipation> EventParticipations => Set<EventParticipation>();
 
     // Removed OnConfiguring override to allow connection string from DI (Program.cs)
 

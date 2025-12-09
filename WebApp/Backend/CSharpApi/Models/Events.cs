@@ -7,7 +7,6 @@ public class Events
 
     public int DurationHours { get; set; } = 1;
 
-
     public string Host { get; set; } = string.Empty;
 
     public string Attendees { get; set; } = string.Empty;

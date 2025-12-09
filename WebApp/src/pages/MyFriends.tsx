@@ -9,6 +9,7 @@ type FriendInfo = {
   username: string;
   online: boolean;
   sameBooking: boolean;
+  sameEvent?: boolean;
 };
 
 type FriendRequest = {
@@ -123,6 +124,7 @@ export default function MyFriends() {
                     <div style={{ fontWeight: 600 }}>{f.username}</div>
                     <div>{f.online ? '🟢 Online' : '⚪ Offline'}</div>
                     <div>{f.sameBooking ? 'Also on your booking' : 'Not in your booking'}</div>
+                    <div>{f.sameEvent ? 'Attending same event today' : 'No shared event today'}</div>
                     <div style={{ marginLeft: 'auto' }}>
                       <a className="primary" href={`/friend/${f.id}`}>View Details</a>
                     </div>

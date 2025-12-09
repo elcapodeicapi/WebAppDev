@@ -30,7 +30,8 @@ export default function CalendarPage() {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        const response = await apiGet<any[]>('/api/events');
+        // Show only events the logged-in user is participating in (e.g., Going)
+        const response = await apiGet<any[]>('/api/events/mine');
         // Map backend response to MeetingRoom format
         const mapped = response.map((evt: any) => {
           const eventDateTime = new Date(evt.eventDate);
@@ -80,12 +81,12 @@ export default function CalendarPage() {
     setSelectedMeeting(null);
   };
 
-  const handleSaveEvent = (event: MeetingRoom) => {
+  const handleSaveEvent = () => {
     // Event was already saved to backend in AddEditEventForm
     // Refresh the events list to show the newly created event
     const fetchEvents = async () => {
       try {
-        const response = await apiGet<any[]>('/api/events');
+        const response = await apiGet<any[]>('/api/events/mine');
         const mapped = response.map((evt: any) => {
           const eventDateTime = new Date(evt.eventDate);
           const hours = eventDateTime.getHours();
@@ -117,7 +118,7 @@ export default function CalendarPage() {
     setSelectedMeeting(null);
   };
 
-  const handleDeleteEvent = (id: string) => {
+  const handleDeleteEvent = (id: string | number) => {
     const confirmed = window.confirm('Are you sure you want to delete this event?');
     if (!confirmed) return;
 
@@ -125,7 +126,7 @@ export default function CalendarPage() {
       try {
         await apiDelete(`/api/events/${id}`);
         // Refresh events list
-        const response = await apiGet<any[]>('/api/events');
+        const response = await apiGet<any[]>('/api/events/mine');
         const mapped = response.map((evt: any) => {
           const eventDateTime = new Date(evt.eventDate);
           const hours = eventDateTime.getHours();

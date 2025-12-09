@@ -61,7 +61,26 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+    // Try to ensure schema includes EventParticipations; if missing, recreate DB for dev
+    try
+    {
+        await db.Database.MigrateAsync();
+        // quick check using raw SQL on sqlite_master
+        var hasEventParticipations = await db.Database.ExecuteSqlRawAsync(
+            "SELECT CASE WHEN EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='EventParticipations') THEN 1 ELSE 0 END;") > 0;
+        if (!hasEventParticipations)
+        {
+            // Dev fallback: drop and recreate
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+        }
+    }
+    catch
+    {
+        // If migration fails (e.g. missing migrations), recreate schema from model
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.EnsureCreatedAsync();
+    }
     await DbInitializer.SeedAsync(db);
 }
 

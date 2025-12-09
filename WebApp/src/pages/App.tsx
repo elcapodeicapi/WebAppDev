@@ -8,6 +8,7 @@ import ProfilePage from './ProfilePage';
 import EventsPage from './EventsPage';
 import MyFriends from './MyFriends';
 import FriendDetailPage from './FriendDetail';
+import InvitationsPage from './Invitations';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { AuthProvider } from '../context/AuthContext';
 
@@ -71,6 +72,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <FriendDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/invitations"
+            element={
+              <ProtectedRoute>
+                <InvitationsPage />
               </ProtectedRoute>
             }
           />

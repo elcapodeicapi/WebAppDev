@@ -30,6 +30,7 @@ export default function Navbar() {
           <Link to="/profile">My Profile</Link>
         <Link to="/calendar">Calendar</Link> {/* ✅ new page */}
         {user && <Link to="/my-friends">My Friends</Link>}
+        {user && <Link to="/invitations">Invitations</Link>}
       </div>
 
       {/* Right: Login button */}
