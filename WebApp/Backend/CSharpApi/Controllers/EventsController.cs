@@ -58,6 +58,18 @@ public class EventsController : ControllerBase
         return Ok(list);
     }
 
+    // GET: api/events/upcoming
+    [HttpGet("upcoming")]
+    public async Task<ActionResult<IEnumerable<Events>>> GetUpcoming()
+    {
+        var list = await _db.Events
+            .Include(e => e.EventParticipation)
+            .Where(e => e.EventDate >= DateTime.UtcNow)
+            .OrderBy(e => e.EventDate)
+            .ToListAsync();
+        return Ok(list);
+    }
+
     // GET: api/events/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Events>> Get(int id)
