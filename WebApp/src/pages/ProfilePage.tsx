@@ -26,8 +26,10 @@ const ProfilePage: React.FC = () => {
     let mounted = true;
     async function load() {
       try {
-        const res = await apiGet<any[]>('/api/events/upcoming');
-        if (mounted) setEvents(res || []);
+        const res = await apiGet<any[]>('/api/events/mine');
+        const now = new Date();
+        const upcoming = (res || []).filter(e => new Date(e.eventDate) >= now).sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+        if (mounted) setEvents(upcoming);
       } catch (err) {
         console.error('Failed to load events', err);
         if (mounted) setEvents([]);
@@ -85,6 +87,11 @@ const ProfilePage: React.FC = () => {
     }
   }, [events, selectedDate]);
 
+  const myUpcomingEvents = React.useMemo(() => {
+    if (!events) return [];
+    return events.slice(0, 3);
+  }, [events]);
+
 
   
   
@@ -130,21 +137,8 @@ const ProfilePage: React.FC = () => {
         <div className="calendar-container" style={styles.container}>
           {/* Dashboard header */}
           <div className="profile-header" style={styles.profileHeader}>
-            <div className="profile-avatar avatar-initials" style={styles.avatar}>{initials}</div>
-            <div style={styles.headerInfo}>
-              <h1 style={styles.name}>{user.fullName}</h1>
-              <p style={styles.username}>@{(user as any).username ?? '—'}</p>
-              <p style={styles.email}>{user.email}</p>
-              <p style={styles.role}>Role: {user.role}</p>
-            </div>
+            <h1 style={styles.pageTitle}>My profile</h1>
             <div style={styles.headerActions}>
-              <button
-                className="primary"
-                style={styles.editButton}
-                onClick={() => setEditing(!editing)}
-              >
-                {editing ? 'Cancel' : 'Edit Profile'}
-              </button>
               <button
                 style={styles.eventsButton}
                 onClick={() => navigate('/events')}
@@ -205,15 +199,64 @@ const ProfilePage: React.FC = () => {
             </div>
           ) : (
             <div style={styles.sectionRow}>
-              {/* Left: calendar and upcoming events */}
+              {/* Left: compact profile panel */}
+              <div style={styles.sectionProfile}>
+                <div style={styles.profileColumnHeader}>
+                  <div className="profile-avatar avatar-initials" style={styles.avatar}>{initials}</div>
+                  <div>
+                    <h2 style={styles.profileColumnTitle}>{user.fullName}</h2>
+                    <p style={styles.username}>@{(user as any).username ?? '—'}</p>
+                    <p style={styles.email}>{user.email}</p>
+                    <p style={styles.role}>Role: {user.role}</p>
+                  </div>
+                </div>
+                <button
+                  className="primary"
+                  style={styles.smallEditButton}
+                  onClick={() => setEditing(true)}
+                >
+                  Edit profile
+                </button>
+
+                <h2 style={{ ...styles.sectionTitle, marginTop: '1.25rem' }}>Profile details</h2>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Full name</span><span>{user.fullName}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Username</span><span>@{(user as any).username ?? '—'}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Email</span><span>{user.email}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Phone</span><span>{(user as any).phoneNumber ?? '—'}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Job title</span><span>{(user as any).jobTitle ?? '—'}</span></div>
+                <div style={styles.detailRow}><span style={styles.detailLabel}>Role</span><span>{user.role}</span></div>
+              </div>
+
+              {/* Right: my upcoming events and calendar */}
               <div style={styles.sectionCalendar}>
-                <h2 style={styles.sectionTitle}>Upcoming events</h2>
+                <h2 style={styles.sectionTitle}>My upcoming events</h2>
                 {events === null ? (
                   <div>Loading events…</div>
                 ) : events.length === 0 ? (
                   <div>No events planned.</div>
                 ) : (
                   <>
+                    {/* Prominent upcoming list inside a highlighted card */}
+                    <div style={styles.upcomingCard}>
+                      <ul style={styles.list}>
+                        {myUpcomingEvents.map((e, i) => {
+                          const start = new Date(e.eventDate);
+                          const end = new Date(start.getTime() + (e.durationHours || 0) * 60 * 60 * 1000);
+                          return (
+                            <li key={i} style={styles.listItem}>
+                              <div style={styles.itemHeader}>{e.title}</div>
+                              <div style={styles.itemMeta}>{start.toLocaleString()} {e.durationHours ? `— ${end.toLocaleString()}` : ''}</div>
+                              <div>{e.description}</div>
+                              {e.location ? <div style={styles.itemDetails}>Location: {e.location}</div> : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+
+                    <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid #eee' }} />
+
+                    <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Events by date</h3>
                     {/* Small month calendar */}
                     <div style={styles.miniCalendar}>
                       {(() => {
@@ -314,16 +357,6 @@ const ProfilePage: React.FC = () => {
                   View all events
                 </button>
               </div>
-              {/* Right: profile details (slightly narrower) */}
-              <div style={styles.sectionProfile}>
-                <h2 style={styles.sectionTitle}>Profile details</h2>
-                <div style={styles.detailRow}><span style={styles.detailLabel}>Full name</span><span>{user.fullName}</span></div>
-                <div style={styles.detailRow}><span style={styles.detailLabel}>Username</span><span>@{(user as any).username ?? '—'}</span></div>
-                <div style={styles.detailRow}><span style={styles.detailLabel}>Email</span><span>{user.email}</span></div>
-                <div style={styles.detailRow}><span style={styles.detailLabel}>Phone</span><span>{(user as any).phoneNumber ?? '—'}</span></div>
-                <div style={styles.detailRow}><span style={styles.detailLabel}>Job title</span><span>{(user as any).jobTitle ?? '—'}</span></div>
-                <div style={styles.detailRow}><span style={styles.detailLabel}>Role</span><span>{user.role}</span></div>
-              </div>
             </div>
           )}
         </div>
@@ -370,6 +403,11 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   headerInfo: {
     flexGrow: 1,
+  },
+  pageTitle: {
+    margin: 0,
+    fontSize: '1.8rem',
+    fontWeight: 600,
   },
   name: {
     margin: 0,
@@ -525,6 +563,34 @@ const styles: { [key: string]: React.CSSProperties } = {
     textDecoration: 'underline',
     fontSize: '0.9rem',
     textAlign: 'left',
+  },
+  upcomingCard: {
+    borderRadius: '10px',
+    backgroundColor: '#e7f1ff',
+    padding: '0.75rem 0.75rem 0.5rem',
+    border: '1px solid #c4d7ff',
+  },
+  profileColumnHeader: {
+    display: 'flex',
+    gap: '1rem',
+    alignItems: 'center',
+    marginBottom: '0.75rem',
+  },
+  profileColumnTitle: {
+    margin: 0,
+    fontSize: '1.3rem',
+    fontWeight: 600,
+  },
+  smallEditButton: {
+    marginTop: '0.25rem',
+    padding: '0.4rem 0.9rem',
+    backgroundColor: '#007bff',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    fontWeight: 500,
   },
   miniCalendar: {
     borderRadius: '8px',
