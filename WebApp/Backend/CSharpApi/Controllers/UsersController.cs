@@ -13,16 +13,33 @@ public class UsersController : ControllerBase
     public UsersController(AppDbContext db) { _db = db; }
 
     public record UserLite(int Id, string Username, string FullName);
+    public record UserFull(int Id, string Username, string Name, string Email, string Role);
 
     // GET: api/users
     [HttpGet]
     [SessionRequired]
-    public async Task<ActionResult<IEnumerable<UserLite>>> Get()
+    public async Task<ActionResult<IEnumerable<object>>> Get()
     {
-        var users = await _db.Users
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+        
+        // Check if requesting user is admin
+        var user = await _db.Users.FindAsync(userId);
+        if (user?.Role != "Admin")
+        {
+            // Return lite version for non-admin
+            var liteUsers = await _db.Users
+                .OrderBy(u => u.Username)
+                .Select(u => new UserLite(u.Id, u.Username, u.Name))
+                .ToListAsync();
+            return Ok(liteUsers);
+        }
+
+        // Return full version for admin
+        var fullUsers = await _db.Users
             .OrderBy(u => u.Username)
-            .Select(u => new UserLite(u.Id, u.Username, u.Name))
+            .Select(u => new UserFull(u.Id, u.Username, u.Name, u.Email, u.Role))
             .ToListAsync();
-        return Ok(users);
+        return Ok(fullUsers);
     }
 }

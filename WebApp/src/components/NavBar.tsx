@@ -26,11 +26,21 @@ export default function Navbar() {
 
       {/* Center: Nav links */}
       <div className="navbar-center">
-        <Link to="/home">Home</Link>
-          <Link to="/profile">My Profile</Link>
-        <Link to="/calendar">Calendar</Link> {/* ✅ new page */}
-        {user && <Link to="/my-friends">My Friends</Link>}
-        {user && <Link to="/invitations">Invitations</Link>}
+        {user?.role === 'Admin' ? (
+          // Admin navigation
+          <>
+            <Link to="/dashboard">Dashboard</Link>
+          </>
+        ) : (
+          // Employee navigation
+          <>
+            <Link to="/home">Home</Link>
+            <Link to="/profile">My Profile</Link>
+            <Link to="/calendar">Calendar</Link>
+            {user && <Link to="/my-friends">My Friends</Link>}
+            {user && <Link to="/invitations">Invitations</Link>}
+          </>
+        )}
       </div>
 
       {/* Right: Login button */}
