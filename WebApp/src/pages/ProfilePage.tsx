@@ -74,6 +74,8 @@ const ProfilePage: React.FC = () => {
     : (user.email || '').slice(0,2).toUpperCase();
 
   const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
+  const [pastFrom, setPastFrom] = React.useState<string | null>(null);
+  const [pastTo, setPastTo] = React.useState<string | null>(null);
 
   const eventsByDate = React.useMemo(() => {
     const map: Record<string, Array<any>> = {};
@@ -104,6 +106,35 @@ const ProfilePage: React.FC = () => {
     if (!events) return [];
     return events.slice(0, 3);
   }, [events]);
+
+  const pastEvents = React.useMemo(() => {
+    if (!events) return [];
+    const now = new Date();
+    return events
+      .filter(e => new Date(e.eventDate) < now)
+      .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+  }, [events]);
+
+  const filteredPastEvents = React.useMemo(() => {
+    if (!pastEvents.length) return [];
+    let fromDate: Date | null = null;
+    let toDate: Date | null = null;
+
+    if (pastFrom) {
+      fromDate = new Date(pastFrom);
+    }
+    if (pastTo) {
+      toDate = new Date(pastTo);
+      toDate.setHours(23, 59, 59, 999);
+    }
+
+    return pastEvents.filter(e => {
+      const d = new Date(e.eventDate);
+      if (fromDate && d < fromDate) return false;
+      if (toDate && d > toDate) return false;
+      return true;
+    }).slice(0, 5);
+  }, [pastEvents, pastFrom, pastTo]);
 
 
   
@@ -238,11 +269,65 @@ const ProfilePage: React.FC = () => {
                 <div style={styles.detailRow}><span style={styles.detailLabel}>Phone</span><span>{(user as any).phoneNumber ?? '—'}</span></div>
                 <div style={styles.detailRow}><span style={styles.detailLabel}>Job title</span><span>{(user as any).jobTitle ?? '—'}</span></div>
                 <div style={styles.detailRow}><span style={styles.detailLabel}>Role</span><span>{user.role}</span></div>
+
+                {/* Past events with date range filter (moved under profile details) */}
+                <div style={{ marginTop: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Past events</h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                    <div>
+                      <label style={styles.label}>From</label>
+                      <input
+                        style={{ ...styles.input, maxWidth: '180px' }}
+                        type="date"
+                        value={pastFrom || ''}
+                        onChange={e => setPastFrom(e.target.value || null)}
+                      />
+                    </div>
+                    <div>
+                      <label style={styles.label}>To</label>
+                      <input
+                        style={{ ...styles.input, maxWidth: '180px' }}
+                        type="date"
+                        value={pastTo || ''}
+                        onChange={e => setPastTo(e.target.value || null)}
+                      />
+                    </div>
+                  </div>
+
+                  {filteredPastEvents.length === 0 ? (
+                    <div style={{ fontSize: '0.9rem', color: '#666' }}>No past events in this range.</div>
+                  ) : (
+                    <ul style={styles.list}>
+                      {filteredPastEvents.map((e, i) => {
+                        const start = new Date(e.eventDate);
+                        const end = new Date(start.getTime() + (e.durationHours || 0) * 60 * 60 * 1000);
+                        return (
+                          <li key={i} style={styles.listItem}>
+                            <div style={styles.itemHeader}>{e.title}</div>
+                            <div style={styles.itemMeta}>{start.toLocaleString()} {e.durationHours ? `— ${end.toLocaleString()}` : ''}</div>
+                            <div>{e.description}</div>
+                            {e.location ? <div style={styles.itemDetails}>Location: {e.location}</div> : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               {/* Right: my upcoming events and calendar */}
               <div style={styles.sectionCalendar}>
-                <h2 style={styles.sectionTitle}>My upcoming events</h2>
+                <h2 style={styles.sectionTitle}>
+                  My upcoming events
+                  {myUpcomingEvents.length > 0 && (
+                    <span
+                      style={styles.upcomingBadge}
+                      title={myUpcomingEvents[0]?.title || 'Upcoming event'}
+                    >
+                      {myUpcomingEvents.length}
+                    </span>
+                  )}
+                </h2>
                 {events === null ? (
                   <div>Loading events…</div>
                 ) : events.length === 0 ? (
@@ -361,14 +446,9 @@ const ProfilePage: React.FC = () => {
                         </ul>
                       )}
                     </div>
+
                   </>
                 )}
-                <button
-                  style={styles.secondaryLinkButton}
-                  onClick={() => navigate('/events')}
-                >
-                  View all events
-                </button>
               </div>
             </div>
           )}
@@ -576,6 +656,20 @@ const styles: { [key: string]: React.CSSProperties } = {
     textDecoration: 'underline',
     fontSize: '0.9rem',
     textAlign: 'left',
+  },
+  upcomingBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: '0.5rem',
+    padding: '0.1rem 0.4rem',
+    minWidth: '1.3rem',
+    borderRadius: '999px',
+    backgroundColor: '#007bff',
+    color: '#ffffff',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    cursor: 'default',
   },
   upcomingCard: {
     borderRadius: '10px',
