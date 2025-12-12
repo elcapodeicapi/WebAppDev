@@ -48,6 +48,39 @@ public class EventsController : ControllerBase
         return Ok(list);
     }
 
+    // GET: api/events/admin/all - all events with details (admin only)
+    [HttpGet("admin/all")]
+    [SessionRequired]
+    public async Task<ActionResult<object>> GetAllAdmin()
+    {
+        var userIdObj = HttpContext.Items["UserId"];
+        if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+        
+        // Verify user is admin
+        var user = await _db.Users.FindAsync(userId);
+        if (user?.Role != "Admin") return Forbid();
+
+        var list = await _db.Events
+            .Include(e => e.EventParticipation)
+            .OrderByDescending(e => e.EventDate)
+            .Select(e => new
+            {
+                e.Id,
+                e.Title,
+                e.Description,
+                e.EventDate,
+                e.DurationHours,
+                e.Host,
+                e.Location,
+                CreatedByUser = _db.Users.Where(u => u.Id == e.CreatedBy).Select(u => u.Name).FirstOrDefault(),
+                ParticipantCount = e.EventParticipation.Count,
+                Participants = e.EventParticipation.Join(_db.Users, p => p.UserId, u => u.Id, (p, u) => new { u.Id, u.Name, u.Username, p.Status })
+            })
+            .ToListAsync();
+        return Ok(list);
+    }
+
     // GET: api/events
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Events>>> GetAll()
@@ -88,7 +121,6 @@ public class EventsController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        // Parse date and time (expecting date dd/MM/yyyy and time like "9 AM")
         DateTime datePart;
         if (!DateTime.TryParseExact(req.Date, new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" },
             System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out datePart))
