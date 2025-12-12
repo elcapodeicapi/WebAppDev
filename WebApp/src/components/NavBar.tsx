@@ -30,6 +30,7 @@ export default function Navbar() {
           // Admin navigation
           <>
             <Link to="/dashboard">Dashboard</Link>
+            <Link to="/events">Events</Link>
           </>
         ) : (
           // Employee navigation
@@ -37,6 +38,7 @@ export default function Navbar() {
             <Link to="/home">Home</Link>
             <Link to="/profile">My Profile</Link>
             <Link to="/calendar">Calendar</Link>
+            <Link to="/events">Events</Link>
             {user && <Link to="/my-friends">My Friends</Link>}
             {user && <Link to="/invitations">Invitations</Link>}
           </>

@@ -26,9 +26,22 @@ const ProfilePage: React.FC = () => {
     let mounted = true;
     async function load() {
       try {
-        const res = await apiGet<any[]>('/api/events/mine');
         const now = new Date();
-        const upcoming = (res || []).filter(e => new Date(e.eventDate) >= now).sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+
+        // First, try to load events the user is participating in
+        let res = await apiGet<any[]>('/api/events/mine');
+        let upcoming = (res || [])
+          .filter(e => new Date(e.eventDate) >= now)
+          .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+
+        // If there are no personal upcoming events, fall back to all upcoming events
+        if (upcoming.length === 0) {
+          res = await apiGet<any[]>('/api/events/upcoming');
+          upcoming = (res || [])
+            .filter(e => new Date(e.eventDate) >= now)
+            .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+        }
+
         if (mounted) setEvents(upcoming);
       } catch (err) {
         console.error('Failed to load events', err);
