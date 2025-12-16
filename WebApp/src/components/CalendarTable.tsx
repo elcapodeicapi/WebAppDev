@@ -16,11 +16,15 @@ export function CalendarTable({
   onMeetingClick: (meeting: MeetingRoom) => void;
 }): JSX.Element {
 
-  const getMeeting = (hour: string, dateStr: string) => {
-    return meetings.find(m => {
+  const getMeetings = (hour: string, dateStr: string): MeetingRoom[] => {
+    return meetings.filter(m => {
       const startIndex = HOURS.indexOf(m.startTime);
       const currentIndex = HOURS.indexOf(hour);
-      return m.date === dateStr && currentIndex >= startIndex && currentIndex < startIndex + m.duration;
+      return (
+        m.date === dateStr &&
+        currentIndex >= startIndex &&
+        currentIndex < startIndex + m.duration
+      );
     });
   };
 
@@ -32,27 +36,50 @@ export function CalendarTable({
           {DAYS.map((day, idx) => {
             const d = new Date(weekStart);
             d.setDate(weekStart.getDate() + idx);
-            return <th key={idx}>{day}<br/>{d.getDate()}/{d.getMonth()+1}</th>;
+            return (
+              <th key={idx}>
+                {day}
+                <br />
+                {d.getDate()}/{d.getMonth() + 1}
+              </th>
+            );
           })}
         </tr>
       </thead>
+
       <tbody>
         {HOURS.map(hour => (
           <tr key={hour}>
             <td className="td-time">{hour}</td>
+
             {DAYS.map((_, idx) => {
               const date = new Date(weekStart);
               date.setDate(weekStart.getDate() + idx);
               const dateStr = getDateString(date);
-              const meeting = getMeeting(hour, dateStr);
+
+              const meetingsAtThisTime = getMeetings(hour, dateStr);
 
               return (
                 <td
                   key={idx}
-                  className={`td-cell ${meeting ? 'occupied' : 'empty'}`}
-                  onClick={() => meeting ? onMeetingClick(meeting) : onAddMeeting(date, hour)}
+                  className={`td-cell ${
+                    meetingsAtThisTime.length > 0 ? 'occupied' : 'empty'
+                  }`}
+                  onClick={() => {
+                    if (meetingsAtThisTime.length === 0) {
+                      onAddMeeting(date, hour);
+                    }
+                  }}
                 >
-                  {meeting && hour === meeting.startTime && <Event meeting={meeting} onMeetingClick={onMeetingClick} />}
+                  {meetingsAtThisTime.map(meeting => (
+                    hour === meeting.startTime && (
+                      <Event
+                        key={meeting.id}
+                        meeting={meeting}
+                        onMeetingClick={onMeetingClick}
+                      />
+                    )
+                  ))}
                 </td>
               );
             })}

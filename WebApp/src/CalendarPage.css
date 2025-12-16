@@ -59,6 +59,11 @@ h1 {
 }
 
 /* ========== Cells ========== */
+.td-cell {
+  vertical-align: top;
+  padding: 6px;
+}
+
 .td-cell.empty {
   background-color: #fafafa;
   cursor: pointer;
@@ -72,20 +77,33 @@ h1 {
 .td-cell.occupied {
   background-color: #b2ebf2;
   cursor: pointer;
-  position: relative;
+
+  /* 👇 BELANGRIJK: meerdere events onder elkaar */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  /* optioneel: scroll bij veel events */
+  max-height: 140px;
+  overflow-y: auto;
 }
 
-/* Meeting block inside cell */
+/* ========== Meeting block inside cell ========== */
 .meeting-block {
   background-color: #00acc1;
   color: white;
-  padding: 5px 8px;
+  padding: 4px 6px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  cursor: pointer;
+}
+
+.meeting-block:hover {
+  background-color: #0097a7;
 }
 
 /* ========== Sidebar ========== */
