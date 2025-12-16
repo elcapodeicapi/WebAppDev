@@ -19,7 +19,7 @@ namespace WebAppDev.AuthApi.Controllers
 
         public class AttendRequest
         {
-            public int UserId { get; set; }
+            public int UserId { get; set; } // optional; when present, must match session; otherwise filled from session
             public int EventId { get; set; }
             public string? Status { get; set; } // optional override (Going/Interested)
         }
@@ -33,8 +33,11 @@ namespace WebAppDev.AuthApi.Controllers
             var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized(new { error = "Login required" });
             var sessionUserId = (int)userIdObj;
 
-            if (req.UserId != sessionUserId)
-                return Forbid();
+            // If body userId is missing or mismatched, force to session user
+            if (req.UserId == 0 || req.UserId != sessionUserId)
+            {
+                req.UserId = sessionUserId;
+            }
 
             var ev = await _db.Events.FirstOrDefaultAsync(e => e.Id == req.EventId);
             if (ev == null)
