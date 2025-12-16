@@ -8,7 +8,7 @@ public static class DbInitializer
 {
     public static async Task SeedAsync(AppDbContext db)
     {
-        if (await db.Users.AnyAsync()) return;
+        if (await db.Users.AnyAsync() && await db.Rooms.AnyAsync()) return;
 
             var users = new List<(string name, string username, string email, string password, string role)>
         {
@@ -29,6 +29,25 @@ public static class DbInitializer
         PasswordSalt = salt,
         Role = role
             });
+        }
+
+        if (!await db.Rooms.AnyAsync())
+        {
+            var rooms = new List<Rooms>
+            {
+                new() { RoomName = "A", Capacity = 1, Location = "Main" },
+                new() { RoomName = "B", Capacity = 1, Location = "Main" },
+                new() { RoomName = "C", Capacity = 1, Location = "Main" },
+                new() { RoomName = "D", Capacity = 1, Location = "Main" },
+                new() { RoomName = "E", Capacity = 1, Location = "Main" },
+                new() { RoomName = "F", Capacity = 1, Location = "Main" },
+                new() { RoomName = "G", Capacity = 1, Location = "Main" },
+                new() { RoomName = "H", Capacity = 1, Location = "Main" },
+                new() { RoomName = "I", Capacity = 1, Location = "Main" },
+                new() { RoomName = "J", Capacity = 1, Location = "Main" }
+            };
+
+            await db.Rooms.AddRangeAsync(rooms);
         }
 
         await db.SaveChangesAsync();

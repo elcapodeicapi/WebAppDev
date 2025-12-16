@@ -146,7 +146,7 @@ public class EventsController : ControllerBase
             var hasConflict = await _db.Events.AnyAsync(e =>
                 e.Location == req.Location &&
                 e.EventDate < endDateTime &&
-                EF.Functions.DateAddHour(e.DurationHours, e.EventDate) > startDateTime);
+                e.EventDate.AddHours(e.DurationHours) > startDateTime);
 
             if (hasConflict)
             {
@@ -175,6 +175,25 @@ public class EventsController : ControllerBase
                 UserId = evt.CreatedBy,
                 Status = "Host"
             });
+        }
+
+        // Also create a room booking entry if the event is tied to a room (Location)
+        if (!string.IsNullOrWhiteSpace(evt.Location) && evt.CreatedBy > 0)
+        {
+            var room = await _db.Rooms.FirstOrDefaultAsync(r => r.RoomName == evt.Location);
+            if (room != null)
+            {
+                var booking = new RoomBookings
+                {
+                    RoomId = room.Id,
+                    UserId = evt.CreatedBy,
+                    BookingDate = startDateTime.Date,
+                    StartTime = TimeOnly.FromDateTime(startDateTime),
+                    EndTime = TimeOnly.FromDateTime(endDateTime),
+                    Purpose = evt.Description
+                };
+                _db.RoomBookings.Add(booking);
+            }
         }
 
         // Optionally add attendees from comma-separated usernames as Invited
@@ -241,7 +260,7 @@ public class EventsController : ControllerBase
                 e.Id != id &&
                 e.Location == req.Location &&
                 e.EventDate < endDateTime &&
-                EF.Functions.DateAddHour(e.DurationHours, e.EventDate) > startDateTime);
+                e.EventDate.AddHours(e.DurationHours) > startDateTime);
 
             if (hasConflict)
             {
