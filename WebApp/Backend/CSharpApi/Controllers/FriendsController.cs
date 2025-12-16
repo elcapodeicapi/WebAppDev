@@ -13,12 +13,18 @@ namespace WebAppDev.AuthApi.Controllers
         private readonly AppDbContext _db;
         public FriendsController(AppDbContext db) { _db = db; }
 
+        public class FriendRequestCreateDto { public string Username { get; set; } = string.Empty; }
+
         [HttpPost("request")]
         [SessionRequired]
-        public async Task<ActionResult<object>> SendRequest([FromBody] int friendId)
+        public async Task<ActionResult<object>> SendRequest([FromBody] FriendRequestCreateDto dto)
         {
             var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
             var userId = (int)userIdObj;
+            if (string.IsNullOrWhiteSpace(dto.Username)) return BadRequest(new { success = false, message = "Username required" });
+            var friend = await _db.Users.SingleOrDefaultAsync(u => u.Username == dto.Username);
+            if (friend == null) return NotFound(new { success = false, message = "User not found" });
+            var friendId = friend.Id;
             if (friendId == userId) return BadRequest("Cannot friend yourself");
             var exists = await _db.Friendships.AnyAsync(f => (f.UserId == userId && f.FriendId == friendId) || (f.UserId == friendId && f.FriendId == userId));
             if (exists) return Conflict(new { success = false, message = "Friendship already exists or pending" });
@@ -27,12 +33,18 @@ namespace WebAppDev.AuthApi.Controllers
             return Ok(new { success = true });
         }
 
+        public class FriendAcceptDto { public string Username { get; set; } = string.Empty; }
+
         [HttpPost("accept")]
         [SessionRequired]
-        public async Task<ActionResult<object>> Accept([FromBody] int requesterId)
+        public async Task<ActionResult<object>> Accept([FromBody] FriendAcceptDto dto)
         {
             var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
             var userId = (int)userIdObj;
+            if (string.IsNullOrWhiteSpace(dto.Username)) return BadRequest(new { success = false, message = "Username required" });
+            var requester = await _db.Users.SingleOrDefaultAsync(u => u.Username == dto.Username);
+            if (requester == null) return NotFound(new { success = false, message = "Requester not found" });
+            var requesterId = requester.Id;
             var fr = await _db.Friendships.SingleOrDefaultAsync(f => f.UserId == requesterId && f.FriendId == userId && f.Status == "Pending");
             if (fr == null) return NotFound(new { success = false, message = "No pending request" });
             fr.Status = "Accepted";
