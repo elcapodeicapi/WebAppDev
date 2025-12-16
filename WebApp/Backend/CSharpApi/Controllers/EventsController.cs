@@ -138,11 +138,27 @@ public class EventsController : ControllerBase
             timePart = dt.TimeOfDay;
         }
 
+        var startDateTime = datePart.Date + timePart;
+        var endDateTime = startDateTime.AddHours(req.DurationHours);
+
+        if (!string.IsNullOrWhiteSpace(req.Location))
+        {
+            var hasConflict = await _db.Events.AnyAsync(e =>
+                e.Location == req.Location &&
+                e.EventDate < endDateTime &&
+                EF.Functions.DateAddHour(e.DurationHours, e.EventDate) > startDateTime);
+
+            if (hasConflict)
+            {
+                return BadRequest(new { message = "Room is full pick another room" });
+            }
+        }
+
         var evt = new Events
         {
             Title = req.Title,
             Description = req.Description,
-            EventDate = datePart.Date + timePart,
+            EventDate = startDateTime,
             DurationHours = req.DurationHours,
             Host = req.Host,
             Attendees = req.Attendees,
@@ -216,10 +232,27 @@ public class EventsController : ControllerBase
             timePart = dt.TimeOfDay;
         }
 
+        var startDateTime = datePart.Date + timePart;
+        var endDateTime = startDateTime.AddHours(req.DurationHours);
+
+        if (!string.IsNullOrWhiteSpace(req.Location))
+        {
+            var hasConflict = await _db.Events.AnyAsync(e =>
+                e.Id != id &&
+                e.Location == req.Location &&
+                e.EventDate < endDateTime &&
+                EF.Functions.DateAddHour(e.DurationHours, e.EventDate) > startDateTime);
+
+            if (hasConflict)
+            {
+                return BadRequest(new { message = "Room is full pick another room" });
+            }
+        }
+
         // Update the event
         evt.Title = req.Title;
         evt.Description = req.Description;
-        evt.EventDate = datePart.Date + timePart;
+        evt.EventDate = startDateTime;
         evt.DurationHours = req.DurationHours;
         evt.Host = req.Host;
         evt.Attendees = req.Attendees;

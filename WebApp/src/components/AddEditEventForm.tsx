@@ -149,7 +149,8 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
       // Notify parent to refresh events
       onSave();
     } catch (err: any) {
-      setError(err.message || 'Failed to save event');
+      const msg = err?.message || (err?.response?.data?.message as string) || 'Failed to save event';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -211,8 +212,20 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
           <textarea value={description} onChange={e => setDescription(e.target.value)}></textarea>
         </div>
         <div className="form-group">
-          <label>Location:</label>
-          <input type="text" value={location} onChange={e => setLocation(e.target.value)} />
+          <label>Location (Room):</label>
+          <select value={location} onChange={e => setLocation(e.target.value)} required>
+            <option value="">Select a room</option>
+            <option value="A">Room A</option>
+            <option value="B">Room B</option>
+            <option value="C">Room C</option>
+            <option value="D">Room D</option>
+            <option value="E">Room E</option>
+            <option value="F">Room F</option>
+            <option value="G">Room G</option>
+            <option value="H">Room H</option>
+            <option value="I">Room I</option>
+            <option value="J">Room J</option>
+          </select>
         </div>
         <div className="form-actions">
           <button type="submit" className="btn primary" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>
