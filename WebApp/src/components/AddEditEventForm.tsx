@@ -108,6 +108,9 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
   const [location, setLocation] = useState(event?.location || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [bookingError, setBookingError] = useState('');
 
   useEffect(() => {
     async function loadUsers() {
@@ -121,12 +124,85 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
     loadUsers();
   }, []);
 
+  useEffect(() => {
+    if (date && startTime && duration) {
+      fetchAvailableRooms();
+    } else {
+      setRooms([]);
+    }
+  }, [date, startTime, duration]);
+
+  async function fetchAvailableRooms() {
+    setLoadingRooms(true);
+    setBookingError('');
+    try {
+      const data = await apiGet(`/api/roombookings/available?date=${date}`);
+      setRooms(data as any[]);
+    } catch (e: any) {
+      console.warn('Room availability fetch failed:', e);
+      setBookingError('');
+      setRooms([]);
+    } finally {
+      setLoadingRooms(false);
+    }
+  }
+
+  const getAvailableRooms = () => {
+    try {
+      if (!rooms.length) return [];
+      
+      return rooms.filter(room => {
+        const startHour = parseInt(startTime.split(' ')[0]);
+        const isAM = startTime.includes('AM');
+        const hour24 = isAM && startHour !== 12 ? startHour : (isAM ? 12 : startHour + 12);
+        
+        return room.TimeSlots && room.TimeSlots.some((slot: any) => {
+          if (!slot || !slot.Time) return false;
+          const slotStartHour = parseInt(slot.Time.split(' - ')[0].split(':')[0]);
+          const slotEndHour = slotStartHour + 1;
+          return slot.Available && hour24 >= slotStartHour && hour24 < slotEndHour;
+        });
+      });
+    } catch (err) {
+      console.warn('Error filtering available rooms:', err);
+      return [];
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
+    // Debug: Log all form values
+    console.log('Form submission debug:', {
+      title,
+      date,
+      startTime,
+      duration,
+      host,
+      selectedAttendees,
+      description,
+      location,
+      attendeesString: selectedAttendees.join(',')
+    });
+
+    // Validation check
+    if (!title || !date || !startTime || !duration || !host) {
+      console.error('Validation failed - missing required fields:', {
+        title: !!title,
+        date: !!date,
+        startTime: !!startTime,
+        duration: !!duration,
+        host: !!host
+      });
+      setError('Please fill in all required fields.');
+      setLoading(false);
+      return;
+    }
+
     try {
+      // First create the event
       const payload = {
         title,
         date,
@@ -138,6 +214,8 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         location
       };
 
+      console.log('Sending event payload:', payload);
+
       if (event?.id) {
         // Edit existing event - use PUT
         await apiPut(`/api/events/${event.id}`, payload);
@@ -146,9 +224,41 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         await apiPost('/api/events', payload);
       }
       
+      console.log('Event created successfully');
+
+      // If creating a new event with a room, book the room
+      if (!event?.id && location && date && startTime && duration) {
+        try {
+          // Extract room ID from location string (e.g., "Room 1" -> 1)
+          const roomIdMatch = location.match(/\d+/);
+          const roomId = roomIdMatch ? parseInt(roomIdMatch[0]) : null;
+          
+          console.log('Attempting room booking:', { location, roomId });
+          
+          if (roomId) {
+            await apiPost('/api/roombookings/book', {
+              roomId,
+              date,
+              startTime,
+              durationHours: duration,
+              purpose: `Event: ${title}`
+            });
+            console.log('Room booking successful');
+          } else {
+            console.warn('Could not extract room ID from location:', location);
+            setError('Event created, but room booking failed - invalid room format');
+          }
+        } catch (bookingErr: any) {
+          // If room booking fails, show warning but don't fail the event creation
+          console.warn('Room booking failed:', bookingErr.message);
+          setError(`Event created successfully, but room booking failed: ${bookingErr.message}`);
+        }
+      }
+      
       // Notify parent to refresh events
       onSave();
     } catch (err: any) {
+      console.error('Event creation failed:', err);
       const msg = err?.message || (err?.response?.data?.message as string) || 'Failed to save event';
       setError(msg);
     } finally {
@@ -212,20 +322,8 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
           <textarea value={description} onChange={e => setDescription(e.target.value)}></textarea>
         </div>
         <div className="form-group">
-          <label>Location (Room):</label>
-          <select value={location} onChange={e => setLocation(e.target.value)} required>
-            <option value="">Select a room</option>
-            <option value="A">Room A</option>
-            <option value="B">Room B</option>
-            <option value="C">Room C</option>
-            <option value="D">Room D</option>
-            <option value="E">Room E</option>
-            <option value="F">Room F</option>
-            <option value="G">Room G</option>
-            <option value="H">Room H</option>
-            <option value="I">Room I</option>
-            <option value="J">Room J</option>
-          </select>
+          <label>Location:</label>
+          <input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g., Room 1, Room 2, etc." />
         </div>
         <div className="form-actions">
           <button type="submit" className="btn primary" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>

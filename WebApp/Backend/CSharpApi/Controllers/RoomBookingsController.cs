@@ -73,6 +73,57 @@ public class RoomBookingsController : ControllerBase
         return Ok(new { success = true });
     }
 
+    // GET: api/roombookings/available?date=yyyy-MM-dd
+    [HttpGet("available")]
+    [SessionRequired]
+    public async Task<ActionResult<IEnumerable<object>>> GetAvailableRooms([FromQuery] string date)
+    {
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized(new { message = "Login required" });
+
+        if (!DateTime.TryParseExact(date, new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" },
+            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dateOnly))
+        {
+            return BadRequest(new { message = "Date must be in dd/MM/yyyy or yyyy-MM-dd format." });
+        }
+
+        var rooms = await _db.Rooms.ToListAsync();
+        var bookings = await _db.RoomBookings
+            .Where(rb => rb.BookingDate.Date == dateOnly.Date)
+            .ToListAsync();
+
+        var availableRooms = rooms.Select(room =>
+        {
+            var roomBookings = bookings.Where(b => b.RoomId == room.Id).ToList();
+            var timeSlots = new List<object>();
+
+            // Generate hourly slots from 8 AM to 6 PM
+            for (int hour = 8; hour <= 18; hour++)
+            {
+                var slotStart = new TimeOnly(hour, 0);
+                var slotEnd = slotStart.AddHours(1);
+                var isBooked = roomBookings.Any(b => b.StartTime < slotEnd && b.EndTime > slotStart);
+
+                timeSlots.Add(new
+                {
+                    Time = $"{slotStart:hh:mm} - {slotEnd:hh:mm}",
+                    Available = !isBooked,
+                    Booking = isBooked ? roomBookings.FirstOrDefault(b => b.StartTime < slotEnd && b.EndTime > slotStart) : null
+                });
+            }
+
+            return new
+            {
+                RoomId = room.Id,
+                RoomName = room.RoomName,
+                Capacity = room.Capacity,
+                Location = room.Location,
+                TimeSlots = timeSlots
+            };
+        }).ToList();
+
+        return Ok(availableRooms);
+    }
+
     // GET: api/roombookings/mine
     [HttpGet("mine")]
     [SessionRequired]

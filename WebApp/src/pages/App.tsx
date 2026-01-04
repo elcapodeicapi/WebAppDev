@@ -4,6 +4,7 @@ import LoginPage from './LoginPage';
 import RegisterPage from './RegisterPage';
 import CalenderPage from './CalendarPage';
 import RoomBookingPage from './RoomBookingPage';
+import OfficeAttendancePage from './OfficeAttendancePage';
 import Dashboard from './Dashboard';
 import ProfilePage from './ProfilePage';
 import EventsPage from './EventsPage';
@@ -49,6 +50,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <RoomBookingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/office-attendance"
+            element={
+              <ProtectedRoute>
+                <OfficeAttendancePage />
               </ProtectedRoute>
             }
           />
