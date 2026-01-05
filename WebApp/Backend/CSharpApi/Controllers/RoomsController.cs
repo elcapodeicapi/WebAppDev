@@ -18,6 +18,24 @@ public class RoomsController : ControllerBase
         _db = db;
     }
 
+    // GET: api/rooms
+    [HttpGet]
+    public async Task<ActionResult> GetAllRooms()
+    {
+        var rooms = await _db.Rooms
+            .OrderBy(r => r.RoomName)
+            .Select(r => new
+            {
+                r.Id,
+                r.RoomName,
+                r.Capacity,
+                r.Location
+            })
+            .ToListAsync();
+        
+        return Ok(rooms);
+    }
+
     // GET: api/rooms/availability?date=2025-12-19
     [HttpGet("availability")]
     [SessionRequired]

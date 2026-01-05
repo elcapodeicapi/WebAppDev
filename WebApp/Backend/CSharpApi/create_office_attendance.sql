@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS OfficeAttendances (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NOT NULL,
+    Date TEXT NOT NULL,
+    Status TEXT NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL,
+    FOREIGN KEY (UserId) REFERENCES Users (Id)
+);

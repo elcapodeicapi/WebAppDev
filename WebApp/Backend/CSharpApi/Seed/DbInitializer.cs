@@ -35,16 +35,15 @@ public static class DbInitializer
         {
             var rooms = new List<Rooms>
             {
-                new() { RoomName = "A", Capacity = 1, Location = "Main" },
-                new() { RoomName = "B", Capacity = 1, Location = "Main" },
-                new() { RoomName = "C", Capacity = 1, Location = "Main" },
-                new() { RoomName = "D", Capacity = 1, Location = "Main" },
-                new() { RoomName = "E", Capacity = 1, Location = "Main" },
-                new() { RoomName = "F", Capacity = 1, Location = "Main" },
-                new() { RoomName = "G", Capacity = 1, Location = "Main" },
-                new() { RoomName = "H", Capacity = 1, Location = "Main" },
-                new() { RoomName = "I", Capacity = 1, Location = "Main" },
-                new() { RoomName = "J", Capacity = 1, Location = "Main" }
+                new() { RoomName = "Room 1", Capacity = 4, Location = "Floor 1" },
+                new() { RoomName = "Room 2", Capacity = 6, Location = "Floor 1" },
+                new() { RoomName = "Room 3", Capacity = 8, Location = "Floor 1" },
+                new() { RoomName = "Room 4", Capacity = 4, Location = "Floor 2" },
+                new() { RoomName = "Room 5", Capacity = 10, Location = "Floor 2" },
+                new() { RoomName = "Room 6", Capacity = 6, Location = "Floor 2" },
+                new() { RoomName = "Room 7", Capacity = 12, Location = "Floor 3" },
+                new() { RoomName = "Room 8", Capacity = 8, Location = "Floor 3" },
+                new() { RoomName = "Room 9", Capacity = 4, Location = "Floor 3" }
             };
 
             await db.Rooms.AddRangeAsync(rooms);

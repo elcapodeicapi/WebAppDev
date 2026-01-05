@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WebAppDev.AuthApi.Data;
 
@@ -10,9 +11,11 @@ using WebAppDev.AuthApi.Data;
 namespace WebAppDev.AuthApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260104162232_OfficeAttendanceOnly")]
+    partial class OfficeAttendanceOnly
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
@@ -112,8 +115,10 @@ namespace WebAppDev.AuthApi.Migrations
 
             modelBuilder.Entity("RoomBookings", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int>("RoomId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UserId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("BookingDate")
@@ -125,23 +130,10 @@ namespace WebAppDev.AuthApi.Migrations
                     b.Property<string>("Purpose")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("RoomId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("RoomsId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<TimeOnly>("StartTime")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoomId");
-
-                    b.HasIndex("RoomsId");
+                    b.HasKey("RoomId", "UserId");
 
                     b.HasIndex("UserId");
 
@@ -351,14 +343,10 @@ namespace WebAppDev.AuthApi.Migrations
             modelBuilder.Entity("RoomBookings", b =>
                 {
                     b.HasOne("Rooms", "Room")
-                        .WithMany()
+                        .WithMany("RoomBookings")
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("Rooms", null)
-                        .WithMany("RoomBookings")
-                        .HasForeignKey("RoomsId");
 
                     b.HasOne("User", "User")
                         .WithMany()

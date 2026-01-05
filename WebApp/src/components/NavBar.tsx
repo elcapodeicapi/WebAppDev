@@ -39,6 +39,8 @@ export default function Navbar() {
             <Link to="/profile">My Profile</Link>
             <Link to="/calendar">Calendar</Link>
             <Link to="/events">Events</Link>
+            {user && <Link to="/room-booking">Room Booking</Link>}
+            {user && <Link to="/office-attendance">Office Attendance</Link>}
             {user && <Link to="/my-friends">My Friends</Link>}
             {user && <Link to="/invitations">Invitations</Link>}
           </>
