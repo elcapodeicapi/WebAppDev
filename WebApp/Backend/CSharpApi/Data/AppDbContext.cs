@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<Events> Events => Set<Events>();
     public DbSet<EventParticipation> EventParticipations => Set<EventParticipation>();
+    public DbSet<EventReview> EventReviews => Set<EventReview>();
 
     // Removed OnConfiguring override to allow connection string from DI (Program.cs)
 
@@ -26,6 +27,10 @@ public class AppDbContext : DbContext
             .HasKey(g => new { g.GroupId, g.UserId });
         modelBuilder.Entity<EventParticipation>()
             .HasKey(e => new { e.EventId, e.UserId });
+
+        modelBuilder.Entity<EventReview>()
+            .HasIndex(r => new { r.EventId, r.UserId })
+            .IsUnique();
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
@@ -65,6 +70,18 @@ public class AppDbContext : DbContext
             .HasOne(rb => rb.User)
             .WithMany()
             .HasForeignKey(rb => rb.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EventReview>()
+            .HasOne(r => r.Event)
+            .WithMany(e => e.Reviews)
+            .HasForeignKey(r => r.EventId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EventReview>()
+            .HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

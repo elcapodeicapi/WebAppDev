@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace WebAppDev.AuthApi.Migrations
 {
     /// <inheritdoc />
-    public partial class IntialCreate : Migration
+    public partial class NewCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -82,7 +82,7 @@ namespace WebAppDev.AuthApi.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "EventParticipation",
+                name: "EventParticipations",
                 columns: table => new
                 {
                     UserId = table.Column<int>(type: "INTEGER", nullable: false),
@@ -91,15 +91,45 @@ namespace WebAppDev.AuthApi.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_EventParticipation", x => new { x.EventId, x.UserId });
+                    table.PrimaryKey("PK_EventParticipations", x => new { x.EventId, x.UserId });
                     table.ForeignKey(
-                        name: "FK_EventParticipation_Events_EventId",
+                        name: "FK_EventParticipations_Events_EventId",
                         column: x => x.EventId,
                         principalTable: "Events",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_EventParticipation_Users_UserId",
+                        name: "FK_EventParticipations_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "EventReviews",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    EventId = table.Column<int>(type: "INTEGER", nullable: false),
+                    UserId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Rating = table.Column<int>(type: "INTEGER", nullable: true),
+                    Comment = table.Column<string>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EventReviews", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EventReviews_Events_EventId",
+                        column: x => x.EventId,
+                        principalTable: "Events",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_EventReviews_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
@@ -159,9 +189,34 @@ namespace WebAppDev.AuthApi.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "OfficeAttendances",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UserId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Date = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OfficeAttendances", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_OfficeAttendances_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "RoomBookings",
                 columns: table => new
                 {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
                     RoomId = table.Column<int>(type: "INTEGER", nullable: false),
                     UserId = table.Column<int>(type: "INTEGER", nullable: false),
                     BookingDate = table.Column<DateTime>(type: "TEXT", nullable: false),
@@ -171,7 +226,7 @@ namespace WebAppDev.AuthApi.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_RoomBookings", x => new { x.RoomId, x.UserId });
+                    table.PrimaryKey("PK_RoomBookings", x => x.Id);
                     table.ForeignKey(
                         name: "FK_RoomBookings_Rooms_RoomId",
                         column: x => x.RoomId,
@@ -209,8 +264,19 @@ namespace WebAppDev.AuthApi.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_EventParticipation_UserId",
-                table: "EventParticipation",
+                name: "IX_EventParticipations_UserId",
+                table: "EventParticipations",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EventReviews_EventId_UserId",
+                table: "EventReviews",
+                columns: new[] { "EventId", "UserId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EventReviews_UserId",
+                table: "EventReviews",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
@@ -228,6 +294,16 @@ namespace WebAppDev.AuthApi.Migrations
                 name: "IX_GroupsMembership_UserId",
                 table: "GroupsMembership",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OfficeAttendances_UserId",
+                table: "OfficeAttendances",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoomBookings_RoomId",
+                table: "RoomBookings",
+                column: "RoomId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_RoomBookings_UserId",
@@ -256,13 +332,19 @@ namespace WebAppDev.AuthApi.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "EventParticipation");
+                name: "EventParticipations");
+
+            migrationBuilder.DropTable(
+                name: "EventReviews");
 
             migrationBuilder.DropTable(
                 name: "Friendships");
 
             migrationBuilder.DropTable(
                 name: "GroupsMembership");
+
+            migrationBuilder.DropTable(
+                name: "OfficeAttendances");
 
             migrationBuilder.DropTable(
                 name: "RoomBookings");

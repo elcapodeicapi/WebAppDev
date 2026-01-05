@@ -15,4 +15,6 @@ public class Events
 
     public int CreatedBy { get; set; }
     public List<EventParticipation> EventParticipation { get; set; } = new();
+
+    public List<EventReview> Reviews { get; set; } = new();
 }
