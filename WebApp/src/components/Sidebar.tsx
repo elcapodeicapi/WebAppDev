@@ -13,6 +13,7 @@ interface MeetingRoom {
   attendees: string[];
   description: string;
   location: string;
+  createdBy?: number;
 }
 
 interface SidebarProps {
@@ -22,8 +23,10 @@ interface SidebarProps {
   onAddClick: () => void;
   onEditClick: (meeting: MeetingRoom) => void;
   onDelete: (id: string | number) => void;
+  onLeave: (id: string | number) => void;
   onCancel: () => void;
   onSave: () => void;
+  currentUserId?: number;
 }
 
 export function Sidebar({
@@ -33,8 +36,10 @@ export function Sidebar({
   onAddClick,
   onEditClick,
   onDelete,
+  onLeave,
   onCancel,
-  onSave
+  onSave,
+  currentUserId
 }: SidebarProps): JSX.Element {
   return (
     <div className="sidebar">
@@ -56,8 +61,14 @@ export function Sidebar({
           <p>Description: {selectedMeeting.description}</p>
           <p>Location: {selectedMeeting.location}</p>
           <div className="event-actions">
-            <button className="btn" onClick={() => onEditClick(selectedMeeting)}>Edit</button>
-            <button className="btn delete" onClick={() => onDelete(selectedMeeting.id)}>Delete</button>
+            {selectedMeeting.createdBy === currentUserId ? (
+              <>
+                <button className="btn" onClick={() => onEditClick(selectedMeeting)}>Edit</button>
+                <button className="btn delete" onClick={() => onDelete(selectedMeeting.id)}>Delete</button>
+              </>
+            ) : (
+              <button className="btn delete" onClick={() => onLeave(selectedMeeting.id)}>Leave</button>
+            )}
           </div>
         </div>
       ) : (

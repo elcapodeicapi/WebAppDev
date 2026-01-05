@@ -1,3 +1,5 @@
+namespace WebAppDev.AuthApi.Models;
+
 public class Events
 {
     public int Id { get; set; }

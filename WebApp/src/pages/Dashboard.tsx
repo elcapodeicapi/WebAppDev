@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import NavBar from '../components/NavBar';
 import Spinner from '../components/Spinner';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import '../AdminDashboard.css';
 
 interface Participant {
@@ -42,7 +43,8 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'users'>('overview');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteEventId, setDeleteEventId] = useState<number | null>(null);
   const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
   const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false);
   const [showHostDropdown, setShowHostDropdown] = useState(false);
@@ -195,10 +197,18 @@ const Dashboard = () => {
         throw new Error('Failed to delete event');
       }
 
-      setShowDeleteConfirm(null);
+      setShowDeleteConfirm(false);
+      setDeleteEventId(null);
       await fetchData();
     } catch (err: any) {
       setError(err.message || 'Failed to delete event');
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteEventId) {
+      await handleDeleteEvent(deleteEventId);
     }
   };
 
@@ -431,7 +441,10 @@ const Dashboard = () => {
                         </button>
                         <button
                           className="btn-delete"
-                          onClick={() => setShowDeleteConfirm(event.id)}
+                          onClick={() => {
+                            setDeleteEventId(event.id);
+                            setShowDeleteConfirm(true);
+                          }}
                         >
                           Delete
                         </button>
@@ -462,28 +475,19 @@ const Dashboard = () => {
                 </div>
               )}
 
-              {showDeleteConfirm && (
-                <div className="modal-overlay" onClick={() => setShowDeleteConfirm(null)}>
-                  <div className="modal" onClick={(e) => e.stopPropagation()}>
-                    <h3>Delete Event?</h3>
-                    <p>Are you sure?</p>
-                    <div className="modal-buttons">
-                      <button
-                        className="btn-delete"
-                        onClick={() => handleDeleteEvent(showDeleteConfirm)}
-                      >
-                        Delete
-                      </button>
-                      <button
-                        className="btn-cancel"
-                        onClick={() => setShowDeleteConfirm(null)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <ConfirmDialog
+                isOpen={showDeleteConfirm}
+                title="Delete Event"
+                message="Are you sure you want to delete this event? This action cannot be undone."
+                confirmText="Delete"
+                cancelText="Cancel"
+                onConfirm={handleConfirmDelete}
+                onCancel={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteEventId(null);
+                }}
+                isLoading={false}
+              />
             </div>
           )}
 

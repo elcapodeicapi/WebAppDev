@@ -89,9 +89,9 @@ public class AuthService
         };
     }
 
-    public async Task<(bool active, string? adminName)> GetSessionAsync(string sid)
+    public async Task<(bool active, string? adminName, int userId)> GetSessionAsync(string sid)
     {
-        if (string.IsNullOrWhiteSpace(sid)) return (false, null);
+        if (string.IsNullOrWhiteSpace(sid)) return (false, null, 0);
         var session = await _db.Sessions.Include(s => s.User).SingleOrDefaultAsync(s => s.Id == sid);
         if (session is null || session.User is null) return (false, null);
         if (session.Revoked || session.ExpiresAt <= DateTime.UtcNow) return (false, null);
@@ -102,7 +102,7 @@ public class AuthService
         session.ExpiresAt = newExpiry;
         await _db.SaveChangesAsync();
         var isAdmin = string.Equals(session.User.Role, "Admin", StringComparison.OrdinalIgnoreCase);
-        return (true, isAdmin ? session.User.Name : null);
+        return (true, isAdmin ? session.User.Name : null, session.User.Id);
     }
 
     public async Task LogoutAsync(string sid)

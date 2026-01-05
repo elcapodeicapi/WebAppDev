@@ -124,7 +124,7 @@ public class EventsController : ControllerBase
         
         // Verify user is admin
         var user = await _db.Users.FindAsync(userId);
-        if (user?.Role != "Admin") return Forbid();
+        if (user?.Role != "Admin") return BadRequest(new { message = "Only admins can access this endpoint" });
 
         var list = await _db.Events
             .AsNoTracking()
@@ -206,6 +206,11 @@ public class EventsController : ControllerBase
     [SessionRequired]
     public async Task<ActionResult<Events>> Create([FromBody] CreateEventRequest req)
     {
+        // Any authenticated user can create events
+        var userIdObj = HttpContext.Items["UserId"];
+        if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
         DateTime datePart;
@@ -241,6 +246,23 @@ public class EventsController : ControllerBase
             }
         }
 
+        // Determine who the actual host should be
+        int hostUserId = userId;
+        
+        // If this is an admin creating an event and a host is specified by name, find that user
+        var currentUser = await _db.Users.FindAsync(userId);
+        if (currentUser?.Role == "Admin" && !string.IsNullOrWhiteSpace(req.Host))
+        {
+            var hostUser = await _db.Users.FirstOrDefaultAsync(u => 
+                u.Name == req.Host || 
+                u.Username == req.Host || 
+                u.Email == req.Host);
+            if (hostUser != null)
+            {
+                hostUserId = hostUser.Id;
+            }
+        }
+
         var evt = new Events
         {
             Title = req.Title,
@@ -250,17 +272,21 @@ public class EventsController : ControllerBase
             Host = req.Host,
             Attendees = req.Attendees,
             Location = req.Location,
-            CreatedBy = (int)(HttpContext.Items["UserId"] ?? 0)
+            CreatedBy = hostUserId
         };
 
-        // Ensure creator is a participant (Host)
+        // Add event first so it gets an ID
+        _db.Events.Add(evt);
+        await _db.SaveChangesAsync();
+
+        // Ensure host is a participant (Going status so they see it in calendar)
         if (evt.CreatedBy > 0)
         {
             _db.Set<EventParticipation>().Add(new EventParticipation
             {
-                Event = evt,
+                EventId = evt.Id,
                 UserId = evt.CreatedBy,
-                Status = "Host"
+                Status = "Going"
             });
         }
 
@@ -296,7 +322,7 @@ public class EventsController : ControllerBase
                     if (u.Id == evt.CreatedBy) continue;
                     _db.Set<EventParticipation>().Add(new EventParticipation
                     {
-                        Event = evt,
+                        EventId = evt.Id,
                         UserId = u.Id,
                         Status = "Invited"
                     });
@@ -304,7 +330,6 @@ public class EventsController : ControllerBase
             }
         }
 
-        _db.Events.Add(evt);
         await _db.SaveChangesAsync();
 
         // Return the newly created event via GET (DTO includes participants/reviews)
@@ -316,10 +341,19 @@ public class EventsController : ControllerBase
     [SessionRequired]
     public async Task<IActionResult> Update(int id, [FromBody] CreateEventRequest req)
     {
+        var userIdObj = HttpContext.Items["UserId"];
+        if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
         var evt = await _db.Events.FindAsync(id);
         if (evt == null) return NotFound();
+
+        // Check if user is the event creator or admin
+        var user = await _db.Users.FindAsync(userId);
+        if (evt.CreatedBy != userId && user?.Role != "Admin")
+            return BadRequest(new { message = "Only the event creator or admin can edit this event" });
 
         // Parse date and time
         DateTime datePart;
@@ -424,37 +458,173 @@ public class EventsController : ControllerBase
     [SessionRequired]
     public async Task<IActionResult> Delete(int id)
     {
+        var userIdObj = HttpContext.Items["UserId"];
+        if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+        
         var evt = await _db.Events.FindAsync(id);
         if (evt == null) return NotFound();
+
+        // Check if user is the event creator or admin
+        var user = await _db.Users.FindAsync(userId);
+        if (evt.CreatedBy != userId && user?.Role != "Admin")
+            return BadRequest(new { message = "Only the event creator or admin can delete this event" });
+
         _db.Events.Remove(evt);
         await _db.SaveChangesAsync();
         return NoContent();
     }
 
-    public class ParticipationRequest { public string Status { get; set; } = "Going"; }
-
-    // POST: api/events/{id}/participation
-    [HttpPost("{id}/participation")]
+    // POST: api/events/{id}/accept - Accept an invitation to an event
+    [HttpPost("{id}/accept")]
     [SessionRequired]
-    public async Task<ActionResult> SetParticipation(int id, [FromBody] ParticipationRequest body)
+    public async Task<IActionResult> AcceptInvitation(int id)
     {
-        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
+        var userIdObj = HttpContext.Items["UserId"];
+        if (userIdObj is null) return Unauthorized();
         var userId = (int)userIdObj;
-        var evt = await _db.Events.FindAsync(id);
-        if (evt == null) return NotFound();
 
-        var part = await _db.Set<EventParticipation>().SingleOrDefaultAsync(p => p.EventId == id && p.UserId == userId);
-        if (part == null)
-        {
-            part = new EventParticipation { EventId = id, UserId = userId, Status = body.Status };
-            _db.Set<EventParticipation>().Add(part);
-        }
-        else
-        {
-            part.Status = body.Status;
-        }
+        var evt = await _db.Events.FindAsync(id);
+        if (evt == null) return NotFound(new { message = "Event not found" });
+
+        var participation = await _db.EventParticipations
+            .FirstOrDefaultAsync(p => p.EventId == id && p.UserId == userId);
+
+        if (participation == null)
+            return NotFound(new { message = "You are not invited to this event" });
+
+        if (participation.Status == "Going")
+            return BadRequest(new { message = "You already accepted this invitation" });
+
+        participation.Status = "Going";
         await _db.SaveChangesAsync();
-        return Ok(new { success = true });
+
+        return Ok(new { message = "Invitation accepted" });
+    }
+
+    // POST: api/events/{id}/decline - Decline/leave an event
+    [HttpPost("{id}/decline")]
+    [SessionRequired]
+    public async Task<IActionResult> DeclineOrLeaveEvent(int id)
+    {
+        var userIdObj = HttpContext.Items["UserId"];
+        if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+
+        var evt = await _db.Events.FindAsync(id);
+        if (evt == null) return NotFound(new { message = "Event not found" });
+
+        // Can't leave if you're the host
+        if (evt.CreatedBy == userId)
+            return BadRequest(new { message = "Event creator cannot leave their own event. Delete it instead." });
+
+        var participation = await _db.EventParticipations
+            .FirstOrDefaultAsync(p => p.EventId == id && p.UserId == userId);
+
+        if (participation == null)
+            return NotFound(new { message = "You are not part of this event" });
+
+        _db.EventParticipations.Remove(participation);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "You have left the event" });
+    }
+
+    public class ParticipationRequest 
+    { 
+        public string Status { get; set; } = "Going";
+    }
+
+    public class AttendanceRequest
+    {
+        public int UserId { get; set; }
+        public int EventId { get; set; }
+    }
+
+    // POST: api/events/attend - User attends an event
+    [HttpPost("attend")]
+    [SessionRequired]
+    public async Task<ActionResult<object>> AttendEvent([FromBody] AttendanceRequest req)
+    {
+        var userIdObj = HttpContext.Items["UserId"];
+        if (userIdObj is null) return Unauthorized();
+        var currentUserId = (int)userIdObj;
+
+        // User can only register themselves (unless admin)
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+        if (req.UserId != currentUserId && currentUser?.Role != "Admin")
+            return BadRequest(new { message = "You can only register yourself for events" });
+
+        // Get the event
+        var evt = await _db.Events
+            .Include(e => e.EventParticipation)
+            .FirstOrDefaultAsync(e => e.Id == req.EventId);
+        
+        if (evt == null)
+            return NotFound(new { message = "Event not found" });
+
+        // Check if user is already attending
+        var existingParticipation = await _db.Set<EventParticipation>()
+            .SingleOrDefaultAsync(p => p.EventId == req.EventId && p.UserId == req.UserId);
+        
+        if (existingParticipation != null)
+            return BadRequest(new { message = "User is already attending this event" });
+
+        // Check for scheduling conflicts with other events
+        var userEvents = await _db.Set<EventParticipation>()
+            .Where(p => p.UserId == req.UserId)
+            .Select(p => p.Event)
+            .Where(e => e != null)
+            .ToListAsync();
+
+        var eventEndTime = evt.EventDate.AddHours(evt.DurationHours);
+
+        foreach (var existingEvent in userEvents)
+        {
+            if (existingEvent == null) continue;
+
+            var existingEventEndTime = existingEvent.EventDate.AddHours(existingEvent.DurationHours);
+
+            // Check for overlap: event starts before existing event ends AND event ends after existing event starts
+            if (evt.EventDate < existingEventEndTime && eventEndTime > existingEvent.EventDate)
+            {
+                return BadRequest(new { 
+                    message = $"Scheduling conflict: You already have '{existingEvent.Title}' scheduled at that time" 
+                });
+            }
+        }
+
+        // Add participation
+        var participation = new EventParticipation
+        {
+            EventId = req.EventId,
+            UserId = req.UserId,
+            Status = "Going"
+        };
+
+        _db.Set<EventParticipation>().Add(participation);
+        await _db.SaveChangesAsync();
+
+        // Return the updated event with participants
+        var updatedEvent = await _db.Events
+            .Where(e => e.Id == req.EventId)
+            .Select(e => new
+            {
+                e.Id,
+                e.Title,
+                e.Description,
+                e.EventDate,
+                e.DurationHours,
+                e.Host,
+                e.Location,
+                e.Attendees,
+                ParticipantCount = e.EventParticipation.Count,
+                Participants = e.EventParticipation.Join(_db.Users, p => p.UserId, u => u.Id, 
+                    (p, u) => new { u.Id, u.Username, u.Name, p.Status })
+            })
+            .FirstOrDefaultAsync();
+
+        return CreatedAtAction(nameof(GetAll), new { id = req.EventId }, updatedEvent);
     }
 
     // DELETE: api/events/{id}/participation
