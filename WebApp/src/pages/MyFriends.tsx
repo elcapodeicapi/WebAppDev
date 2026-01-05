@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { apiGet, apiPost } from '../lib/api';
-import { useAuth } from '../context/AuthContext';
 import NavBar from '../components/NavBar';
 import '../App.css';
 
@@ -18,7 +17,6 @@ type FriendRequest = {
 };
 
 export default function MyFriends() {
-  const { user } = useAuth();
   const [friends, setFriends] = useState<FriendInfo[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,9 +45,9 @@ export default function MyFriends() {
   async function sendRequest() {
     setError(null);
     try {
-      const id = parseInt(requestTarget, 10);
-      if (!id || id === user?.id) { setError('Invalid target user'); return; }
-      await apiPost<number, unknown>('/api/friends/request', id);
+      const username = requestTarget.trim();
+      if (!username) { setError('Username is required'); return; }
+      await apiPost<{ username: string }, unknown>('/api/friends/request', { username });
       setRequestTarget('');
       await load();
     } catch (e: any) {
@@ -57,26 +55,21 @@ export default function MyFriends() {
     }
   }
 
-  async function accept(requesterId: number) {
+  async function accept(requesterUsername: string) {
     setError(null);
     try {
-      await apiPost<number, unknown>('/api/friends/accept', requesterId);
+      await apiPost<{ username: string }, unknown>('/api/friends/accept', { username: requesterUsername });
       await load();
     } catch (e: any) {
       setError(e.message || 'Failed to accept');
     }
   }
 
-  async function decline(requesterId: number) {
+  async function decline(requesterUsername: string) {
     setError(null);
-    try {
-      // simple decline by removing pending record: delete not implemented, so mark conflict path; alternatively we can add an endpoint.
-      await apiPost<number, unknown>('/api/friends/accept', -requesterId); // placeholder no-op; backend lacks decline; show error
-      await load();
-    } catch {
-      // For now, just show a message that decline isn't implemented
-      setError('Decline not implemented server-side');
-    }
+    // Backend does not currently implement a decline endpoint.
+    // Keeping this explicit avoids accidentally accepting a request.
+    setError(`Decline not implemented server-side (pending from ${requesterUsername})`);
   }
 
   return (
@@ -92,8 +85,8 @@ export default function MyFriends() {
             {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               <input
-                type="number"
-                placeholder="User ID to friend"
+                type="text"
+                placeholder="Username to friend"
                 value={requestTarget}
                 onChange={(e) => setRequestTarget(e.target.value)}
               />
@@ -110,8 +103,8 @@ export default function MyFriends() {
                     <li key={r.requesterId} style={{ padding: 8, borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ fontWeight: 600 }}>{r.username}</div>
                       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                        <button className="primary" onClick={() => accept(r.requesterId)}>Accept</button>
-                        <button onClick={() => decline(r.requesterId)}>Decline</button>
+                        <button className="primary" onClick={() => accept(r.username)}>Accept</button>
+                        <button onClick={() => decline(r.username)}>Decline</button>
                       </div>
                     </li>
                   ))}
