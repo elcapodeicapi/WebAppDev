@@ -241,6 +241,11 @@ export default function CalendarPage() {
   // Debug: Log state to see what's happening
   console.log('CalendarPage state:', { loading, error, meetingsCount: meetings.length });
 
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowKey = getDateString(tomorrow);
+  const tomorrowMeetings = meetings.filter(m => m.date === tomorrowKey);
+
   return (
     <div className="calendar-page-container" style={{ color: '#000', minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Navbar />
@@ -249,6 +254,30 @@ export default function CalendarPage() {
       <div className="calendar-main-content">
         <div className="calendar-container" style={{ color: '#000' }}>
           <h1>📅 Weekly Calendar</h1>
+
+          {tomorrowMeetings.length > 0 && (
+            <div
+              style={{
+                margin: '0.75rem 0',
+                padding: '0.75rem 1rem',
+                border: '1px solid #ddd',
+                borderRadius: 8,
+                background: '#fff',
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Reminder</div>
+              <div style={{ color: '#333', marginBottom: '0.5rem' }}>
+                You have {tomorrowMeetings.length} event{tomorrowMeetings.length === 1 ? '' : 's'} tomorrow.
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {tomorrowMeetings.map(m => (
+                  <div key={m.id} style={{ color: '#333' }}>
+                    <strong>{m.startTime}</strong> — {m.title}{m.location ? ` (${m.location})` : ''}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="week-controls">
             <Button text="← Previous" onClick={() => changeWeek('prev')} />

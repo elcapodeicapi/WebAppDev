@@ -65,7 +65,8 @@ public class AuthController : ControllerBase
                 HttpOnly = true,
                 Secure = false, // set true behind HTTPS in production
                 SameSite = SameSiteMode.Lax,
-                Expires = DateTime.UtcNow.AddHours(8)
+                Expires = DateTime.UtcNow.AddHours(8),
+                Path = "/"
             };
             Response.Cookies.Append("sid", resp.SessionId, cookieOptions);
             // Do not expose session id back to client if strict; keep current shape but client should ignore
@@ -90,7 +91,7 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(sid)) return BadRequest();
         await _auth.LogoutAsync(sid);
         // Clear cookie
-        Response.Cookies.Delete("sid");
+        Response.Cookies.Delete("sid", new CookieOptions { Path = "/" });
         return NoContent();
     }
 
