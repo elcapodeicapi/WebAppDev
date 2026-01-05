@@ -372,7 +372,15 @@ const ProfilePage: React.FC = () => {
                             📍 {booking.RoomName || booking.roomName || 'Unknown Room'}
                           </div>
                           <div style={styles.itemMeta}>
-                            📅 {booking.BookingDate ? new Date(booking.BookingDate).toLocaleDateString() : 'Unknown date'} • 
+                            📅 {booking.BookingDate ? (() => {
+                              try {
+                                const dateStr = booking.BookingDate;
+                                const date = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T00:00:00');
+                                return isNaN(date.getTime()) ? dateStr : date.toLocaleDateString();
+                              } catch {
+                                return booking.BookingDate;
+                              }
+                            })() : 'Unknown date'} • 
                             ⏰ {booking.StartTime || 'Unknown'} - {booking.EndTime || 'Unknown'}
                           </div>
                           <div style={styles.itemDetails}>

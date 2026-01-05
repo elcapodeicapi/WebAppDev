@@ -104,9 +104,10 @@ public class RoomBookingsController : ControllerBase
                     Id = savedBooking.Id,
                     RoomName = savedBooking.Room?.RoomName,
                     BookingDate = savedBooking.BookingDate.ToString("yyyy-MM-dd"),
-                    StartTime = savedBooking.StartTime.ToString(),
-                    EndTime = savedBooking.EndTime.ToString(),
-                    Purpose = savedBooking.Purpose
+                    StartTime = savedBooking.StartTime.ToString("h:mm tt"),
+                    EndTime = savedBooking.EndTime.ToString("h:mm tt"),
+                    Purpose = savedBooking.Purpose,
+                    NumberOfPeople = savedBooking.NumberOfPeople
                 }
             });
         }
@@ -180,8 +181,8 @@ public class RoomBookingsController : ControllerBase
             Id = rb.Id,
             RoomName = rb.Room?.RoomName ?? "Unknown Room",
             BookingDate = rb.BookingDate.ToString("yyyy-MM-dd"),
-            StartTime = rb.StartTime.ToString(),
-            EndTime = rb.EndTime.ToString(),
+            StartTime = rb.StartTime.ToString("h:mm tt"),
+            EndTime = rb.EndTime.ToString("h:mm tt"),
             Purpose = rb.Purpose,
             NumberOfPeople = rb.NumberOfPeople,
             DurationHours = (rb.EndTime.ToTimeSpan() - rb.StartTime.ToTimeSpan()).TotalHours
