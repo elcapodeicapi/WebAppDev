@@ -241,29 +241,4 @@ public class RoomBookingsController : ControllerBase
 
         return Ok(availableRooms);
     }
-
-    // GET: api/roombookings/mine
-    [HttpGet("mine")]
-    [SessionRequired]
-    public async Task<ActionResult<IEnumerable<BookingDto>>> Mine()
-    {
-        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized(new { message = "Login required" });
-        var userId = (int)userIdObj;
-
-        var list = await _db.RoomBookings
-            .Where(b => b.UserId == userId)
-            .Join(_db.Rooms, b => b.RoomId, r => r.Id, (b, r) => new BookingDto
-            {
-                RoomId = b.RoomId,
-                RoomName = r.RoomName,
-                BookingDate = b.BookingDate,
-                StartTime = b.StartTime.ToString(),
-                EndTime = b.EndTime.ToString(),
-                Purpose = b.Purpose
-            })
-            .OrderByDescending(b => b.BookingDate)
-            .ToListAsync();
-
-        return Ok(list);
-    }
 }

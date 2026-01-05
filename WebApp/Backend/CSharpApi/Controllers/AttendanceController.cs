@@ -21,7 +21,7 @@ namespace WebAppDev.AuthApi.Controllers
         {
             public int UserId { get; set; } // optional; when present, must match session; otherwise filled from session
             public int EventId { get; set; }
-            public string? Status { get; set; } // optional override (Going/Interested)
+            public string? Status { get; set; } // optional override (Going/Declined)
         }
 
         // POST api/attendance
@@ -43,18 +43,27 @@ namespace WebAppDev.AuthApi.Controllers
             if (ev == null)
                 return NotFound(new { error = "Event not found" });
 
-            // Availability check: prevent overlapping 'Going' events for the user
-            var start = ev.EventDate;
-            var end = ev.EventDate.AddHours(ev.DurationHours);
-            var hasOverlap = await _db.EventParticipations
-                .Where(p => p.UserId == req.UserId && p.Status == "Going")
-                .Include(p => p.Event)
-                .AnyAsync(p => p.Event != null &&
-                               p.Event.EventDate < end && start < p.Event.EventDate.AddHours(p.Event.DurationHours));
-
-            if (hasOverlap)
+            var newStatus = string.IsNullOrWhiteSpace(req.Status) ? "Going" : req.Status!.Trim();
+            if (newStatus != "Going" && newStatus != "Declined")
             {
-                return BadRequest(new { error = "You already have a going event overlapping with this time." });
+                return BadRequest(new { error = "Status must be 'Going' or 'Declined'." });
+            }
+
+            if (newStatus == "Going")
+            {
+                // Availability check: prevent overlapping 'Going' events for the user
+                var start = ev.EventDate;
+                var end = ev.EventDate.AddHours(ev.DurationHours);
+                var hasOverlap = await _db.EventParticipations
+                    .Where(p => p.UserId == req.UserId && p.Status == "Going")
+                    .Include(p => p.Event)
+                    .AnyAsync(p => p.Event != null &&
+                                   p.Event.EventDate < end && start < p.Event.EventDate.AddHours(p.Event.DurationHours));
+
+                if (hasOverlap)
+                {
+                    return BadRequest(new { error = "You already have a going event overlapping with this time." });
+                }
             }
 
             // Must have an invitation to attend
@@ -66,15 +75,10 @@ namespace WebAppDev.AuthApi.Controllers
                 return BadRequest(new { error = "No invitation found for this user and event." });
             }
 
-            // Only invited or interested can become going
-            var newStatus = string.IsNullOrWhiteSpace(req.Status) ? "Going" : req.Status!;
-            if (participation.Status != "Invited" && participation.Status != "Interested" && participation.Status != "Declined")
+            // Allow changing state from Invited (and legacy Interested) to Going/Declined.
+            if (participation.Status == newStatus)
             {
-                // If already Going, return the event
-                if (participation.Status == "Going")
-                {
-                    return Ok(ev);
-                }
+                return Ok(ev);
             }
 
             participation.Status = newStatus;

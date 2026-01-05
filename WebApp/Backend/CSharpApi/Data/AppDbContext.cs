@@ -57,7 +57,7 @@ public class AppDbContext : DbContext
         // Add RoomBookings relationships
         modelBuilder.Entity<RoomBookings>()
             .HasOne(rb => rb.Room)
-            .WithMany()
+            .WithMany(r => r.RoomBookings)
             .HasForeignKey(rb => rb.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
 

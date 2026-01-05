@@ -43,6 +43,32 @@ interface AddEditEventFormProps {
 
 export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }: AddEditEventFormProps): JSX.Element {
   const { user } = useAuth();
+
+  type AvailableRoom = {
+    RoomId: number;
+    RoomName: string;
+    Capacity: number;
+    Location: string;
+    TimeSlots: Array<{ Time: string; Available: boolean }>;
+  };
+
+  function startTimeToHour24(value: string): number | null {
+    const match = value.trim().match(/^(\d{1,2})\s*(AM|PM)$/i);
+    if (!match) return null;
+    const hour12 = parseInt(match[1], 10);
+    const isPM = match[2].toUpperCase() === 'PM';
+    if (Number.isNaN(hour12) || hour12 < 1 || hour12 > 12) return null;
+    if (hour12 === 12) return isPM ? 12 : 0;
+    return isPM ? hour12 + 12 : hour12;
+  }
+
+  function slotStartHour24(timeRange: string): number | null {
+    // e.g. "08:00 - 09:00" -> 8
+    const match = (timeRange || '').match(/^(\d{2}):\d{2}\s*-/);
+    if (!match) return null;
+    const hour = parseInt(match[1], 10);
+    return Number.isNaN(hour) ? null : hour;
+  }
   // Helper to extract date from either EventResponse or MeetingRoom
   const getDateValue = () => {
     if (!event) return '';
@@ -108,9 +134,10 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
   const [location, setLocation] = useState(event?.location || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [rooms, setRooms] = useState<any[]>([]);
+  const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [bookingError, setBookingError] = useState('');
+  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadUsers() {
@@ -125,49 +152,41 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
   }, []);
 
   useEffect(() => {
-    if (date && startTime && duration) {
+    if (date) {
       fetchAvailableRooms();
     } else {
-      setRooms([]);
+      setAvailableRooms([]);
+      setSelectedRoomId(null);
     }
-  }, [date, startTime, duration]);
+  }, [date]);
 
   async function fetchAvailableRooms() {
     setLoadingRooms(true);
     setBookingError('');
     try {
       const data = await apiGet(`/api/roombookings/available?date=${date}`);
-      setRooms(data as any[]);
+      setAvailableRooms((data as any[]) as AvailableRoom[]);
     } catch (e: any) {
       console.warn('Room availability fetch failed:', e);
       setBookingError('');
-      setRooms([]);
+      setAvailableRooms([]);
     } finally {
       setLoadingRooms(false);
     }
   }
 
-  const getAvailableRooms = () => {
-    try {
-      if (!rooms.length) return [];
-      
-      return rooms.filter(room => {
-        const startHour = parseInt(startTime.split(' ')[0]);
-        const isAM = startTime.includes('AM');
-        const hour24 = isAM && startHour !== 12 ? startHour : (isAM ? 12 : startHour + 12);
-        
-        return room.TimeSlots && room.TimeSlots.some((slot: any) => {
-          if (!slot || !slot.Time) return false;
-          const slotStartHour = parseInt(slot.Time.split(' - ')[0].split(':')[0]);
-          const slotEndHour = slotStartHour + 1;
-          return slot.Available && hour24 >= slotStartHour && hour24 < slotEndHour;
-        });
+  const availableForSelection = useMemo(() => {
+    const startHour = startTimeToHour24(startTime);
+    if (!date || startHour === null || !duration || duration < 1) return [];
+    const requiredHours = Array.from({ length: duration }, (_, i) => startHour + i);
+    return availableRooms.filter(r => {
+      if (!Array.isArray(r.TimeSlots)) return false;
+      return requiredHours.every(h => {
+        const slot = r.TimeSlots.find(s => slotStartHour24(s.Time) === h);
+        return !!slot?.Available;
       });
-    } catch (err) {
-      console.warn('Error filtering available rooms:', err);
-      return [];
-    }
-  };
+    });
+  }, [availableRooms, date, duration, startTime]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,9 +248,13 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
       // If creating a new event with a room, book the room
       if (!event?.id && location && date && startTime && duration) {
         try {
-          // Extract room ID from location string (e.g., "Room 1" -> 1)
-          const roomIdMatch = location.match(/\d+/);
-          const roomId = roomIdMatch ? parseInt(roomIdMatch[0]) : null;
+          // Prefer the selected room from the availability list.
+          // (The seeded rooms use names like "A", so extracting digits from the location often fails.)
+          const roomIdFromSelection = selectedRoomId;
+
+          // Backwards-compatible fallback if someone typed "Room 1".
+          const roomIdMatch = roomIdFromSelection ? null : location.match(/\d+/);
+          const roomId = roomIdFromSelection ?? (roomIdMatch ? parseInt(roomIdMatch[0]) : null);
           
           console.log('Attempting room booking:', { location, roomId });
           
@@ -246,7 +269,7 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
             console.log('Room booking successful');
           } else {
             console.warn('Could not extract room ID from location:', location);
-            setError('Event created, but room booking failed - invalid room format');
+            setError('Event created, but room booking failed - no room selected');
           }
         } catch (bookingErr: any) {
           // If room booking fails, show warning but don't fail the event creation
@@ -323,7 +346,45 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         </div>
         <div className="form-group">
           <label>Location:</label>
-          <input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g., Room 1, Room 2, etc." />
+          <input
+            type="text"
+            value={location}
+            onChange={e => {
+              setLocation(e.target.value);
+              setSelectedRoomId(null);
+            }}
+            placeholder="Select a room below or type a location"
+          />
+
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Available rooms (click to select)</div>
+            {bookingError && <div style={{ color: 'red', marginBottom: 6 }}>{bookingError}</div>}
+            {loadingRooms ? (
+              <div>Loading rooms…</div>
+            ) : !date ? (
+              <div style={{ color: '#777' }}>Select a date to see available rooms.</div>
+            ) : availableForSelection.length === 0 ? (
+              <div style={{ color: '#777' }}>No rooms available for this time.</div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {availableForSelection.map(r => (
+                  <button
+                    key={r.RoomId}
+                    type="button"
+                    className={selectedRoomId === r.RoomId ? 'btn primary' : 'btn'}
+                    style={{ padding: '6px 10px' }}
+                    onClick={() => {
+                      setSelectedRoomId(r.RoomId);
+                      setLocation(`Room ${r.RoomName}`);
+                      setBookingError('');
+                    }}
+                  >
+                    Room {r.RoomName}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div className="form-actions">
           <button type="submit" className="btn primary" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>

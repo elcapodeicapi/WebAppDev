@@ -42,7 +42,7 @@ export default function InvitationsPage() {
 
   const myInvites = useMemo(() => (events || []), [events]);
 
-  async function respond(eventId: number, status: 'Going' | 'Declined' | 'Interested') {
+  async function respond(eventId: number, status: 'Going' | 'Declined') {
     setError(null);
     try {
       // Use new attendance endpoint: require userId; infer from session via backend, but keep shape
@@ -114,7 +114,6 @@ export default function InvitationsPage() {
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button className="primary" onClick={() => respond(e.id, 'Going')}>Accept</button>
-                          <button onClick={() => respond(e.id, 'Interested')}>Maybe</button>
                           <button onClick={() => respond(e.id, 'Declined')}>Decline</button>
                         </div>
                       </div>

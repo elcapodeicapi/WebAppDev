@@ -73,6 +73,36 @@ using (var scope = app.Services.CreateScope())
         }
         // Ensure database exists according to current model (no migrations needed for dev)
         await db.Database.EnsureCreatedAsync();
+
+        // If the database already existed with an older schema, EnsureCreated will not update it.
+        // Validate critical columns and recreate if mismatched.
+        static bool HasColumn(System.Data.Common.DbConnection connection, string table, string column)
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = $"SELECT 1 FROM pragma_table_info('{table}') WHERE name = '{column}' LIMIT 1;";
+            return cmd.ExecuteScalar() != null;
+        }
+
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            connection.Open();
+        }
+
+        var schemaOk =
+            HasColumn(connection, "Rooms", "Id") &&
+            HasColumn(connection, "RoomBookings", "Id") &&
+            HasColumn(connection, "RoomBookings", "RoomId") &&
+            HasColumn(connection, "RoomBookings", "UserId");
+
+        // Important on Windows: close connection before deleting the SQLite file.
+        connection.Close();
+
+        if (!schemaOk)
+        {
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+        }
     }
     else
     {

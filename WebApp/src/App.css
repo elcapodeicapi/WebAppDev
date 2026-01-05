@@ -303,6 +303,12 @@ form {
 }
 
 /* Button */
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .navbar-right .primary {
   background: #ff6a3d;
   color: #fff;
@@ -317,6 +323,37 @@ form {
 
 .navbar-right .primary:hover {
   background: #ff8a5c;
+}
+
+.navbar-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #ddd;
+  background: #ff6a3d;
+  text-decoration: none;
+}
+
+.navbar-avatar:focus {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+.navbar-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.navbar-avatar-initials {
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
 }
 
 .calendar-content {

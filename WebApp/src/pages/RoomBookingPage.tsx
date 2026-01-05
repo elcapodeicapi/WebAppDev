@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Navbar from '../components/NavBar';
-import { apiPost, apiGet } from '../lib/api';
+import { apiGet } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import './RoomBookingPage.css';
 
@@ -122,31 +122,28 @@ export default function RoomBookingPage() {
       const contentType = response.headers.get('content-type');
       console.log('Content type:', contentType);
 
+      // Read the body ONCE (Response streams can only be consumed once)
+      const responseText = await response.text();
+      const isJson = !!contentType && contentType.includes('application/json');
+      const parsed = isJson && responseText ? (() => {
+        try { return JSON.parse(responseText); } catch { return null; }
+      })() : null;
+
       if (!response.ok) {
-        // Try to get error details
-        let errorText = '';
-        try {
-          const responseText = await response.text();
-          console.log('Error response text:', responseText);
-          errorText = responseText;
-          
-          // If it's HTML, it's likely a server error page
-          if (contentType && contentType.includes('text/html')) {
-            throw new Error('Server returned an HTML error page. Check backend logs for details.');
-          }
-          
-          // Try to parse as JSON if possible
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = JSON.parse(responseText);
-            throw new Error(errorData.message || 'Booking failed');
-          }
-        } catch (parseError) {
-          throw new Error(`Booking failed: ${errorText.substring(0, 200)}...`);
+        console.log('Error response text:', responseText);
+
+        // If it's HTML, it's likely a server error page
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Server returned an HTML error page. Check backend logs for details.');
         }
+
+        // Prefer server JSON message when available
+        const msg = (parsed as any)?.message || (parsed as any)?.error || responseText || `Booking failed with ${response.status}`;
+        throw new Error(msg);
       }
 
       // Parse successful response
-      const data = await response.json();
+      const data = (parsed ?? {}) as any;
       console.log('Booking successful! Response:', data);
       
       // Show detailed success message

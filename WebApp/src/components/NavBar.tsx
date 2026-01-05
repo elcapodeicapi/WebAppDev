@@ -8,6 +8,15 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
+  function getInitials(text: string) {
+    const cleaned = (text || '').trim();
+    if (!cleaned) return '??';
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? '';
+    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : (parts[0]?.[1] ?? '');
+    return (first + last).toUpperCase();
+  }
+
   const showLoginButton = !user && (location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register');
 
   async function handleLogout() {
@@ -54,7 +63,23 @@ export default function Navbar() {
             <button className="primary">Login</button>
           </Link>
         ) : user ? (
-          <button className="primary" onClick={handleLogout}>Logout</button>
+          <>
+            <button className="primary" onClick={handleLogout}>Logout</button>
+            <Link
+              to="/profile"
+              className="navbar-avatar"
+              aria-label="Profile"
+              title={user.fullName}
+            >
+              {(user as any)?.avatarUrl ? (
+                <img className="navbar-avatar-img" src={(user as any).avatarUrl} alt={user.fullName} />
+              ) : (
+                <span className="navbar-avatar-initials">
+                  {getInitials(user.fullName || user.username || user.email)}
+                </span>
+              )}
+            </Link>
+          </>
         ) : null}
       </div>
     </nav>
