@@ -169,7 +169,7 @@ public class EventsController : ControllerBase
             var hostUser = await _db.Users.FirstOrDefaultAsync(u => 
                 u.Name == req.Host || 
                 u.Username == req.Host || 
-                u.FullName == req.Host);
+                u.Email == req.Host);
             if (hostUser != null)
             {
                 hostUserId = hostUser.Id;
@@ -317,7 +317,7 @@ public class EventsController : ControllerBase
             var newHostUser = await _db.Users.FirstOrDefaultAsync(u => 
                 u.Name == req.Host || 
                 u.Username == req.Host || 
-                u.FullName == req.Host);
+                u.Email == req.Host);
             if (newHostUser != null && newHostUser.Id != evt.CreatedBy)
             {
                 // Remove old host from EventParticipation

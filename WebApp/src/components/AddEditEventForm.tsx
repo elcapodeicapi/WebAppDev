@@ -358,48 +358,6 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
           <textarea value={description} onChange={e => setDescription(e.target.value)}></textarea>
         </div>
         <div className="form-group">
-<<<<<<< HEAD
-          <label>Location:</label>
-          <input
-            type="text"
-            value={location}
-            onChange={e => {
-              setLocation(e.target.value);
-              setSelectedRoomId(null);
-            }}
-            placeholder="Select a room below or type a location"
-          />
-
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>Available rooms (click to select)</div>
-            {bookingError && <div style={{ color: 'red', marginBottom: 6 }}>{bookingError}</div>}
-            {loadingRooms ? (
-              <div>Loading rooms…</div>
-            ) : !date ? (
-              <div style={{ color: '#777' }}>Select a date to see available rooms.</div>
-            ) : availableForSelection.length === 0 ? (
-              <div style={{ color: '#777' }}>No rooms available for this time.</div>
-            ) : (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {availableForSelection.map(r => (
-                  <button
-                    key={r.RoomId}
-                    type="button"
-                    className={selectedRoomId === r.RoomId ? 'btn primary' : 'btn'}
-                    style={{ padding: '6px 10px' }}
-                    onClick={() => {
-                      setSelectedRoomId(r.RoomId);
-                      setLocation(`Room ${r.RoomName}`);
-                      setBookingError('');
-                    }}
-                  >
-                    Room {r.RoomName}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-=======
           <label>Location (Room):</label>
           <select value={location} onChange={e => setLocation(e.target.value)}>
             <option value="">Select a room (optional)</option>
@@ -414,7 +372,6 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
             <option value="I">Room I</option>
             <option value="J">Room J</option>
           </select>
->>>>>>> LastAmmarBrnch
         </div>
         <div className="form-actions">
           <button type="submit" className="btn primary" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>
