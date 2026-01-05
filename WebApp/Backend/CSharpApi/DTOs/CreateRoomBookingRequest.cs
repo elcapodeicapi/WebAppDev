@@ -19,5 +19,9 @@ public class CreateRoomBookingRequest
     [Range(1, 24)]
     public int DurationHours { get; set; } = 1;
 
+    [Required]
+    [Range(1, 1000)]
+    public int NumberOfPeople { get; set; } = 1;
+
     public string? Purpose { get; set; }
 }

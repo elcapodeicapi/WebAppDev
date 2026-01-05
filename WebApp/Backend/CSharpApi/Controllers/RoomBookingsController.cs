@@ -64,7 +64,8 @@ public class RoomBookingsController : ControllerBase
             BookingDate = datePart.Date,
             StartTime = startTimeOnly,
             EndTime = endTimeOnly,
-            Purpose = req.Purpose
+            Purpose = req.Purpose,
+            NumberOfPeople = req.NumberOfPeople
         };
 
         Console.WriteLine($"=== CREATING BOOKING ===");
@@ -152,10 +153,10 @@ public class RoomBookingsController : ControllerBase
         Console.WriteLine($"=== DEBUG: Found {bookings.Count} bookings for user {userId} ===");
         foreach (var booking in bookings)
         {
-            Console.WriteLine($"Booking ID: {booking.Id}, Room: {booking.Room?.RoomName ?? "NULL"}, RoomId: {booking.RoomId}");
+            Console.WriteLine($"Booking ID: {booking.Id}, Room: {booking.Room?.RoomName ?? "NULL"}, RoomId: {booking.RoomId}, NumberOfPeople: {booking.NumberOfPeople}");
             if (booking.Room != null)
             {
-                Console.WriteLine($"  Room details: {booking.Room.RoomName}, {booking.Room.Location}, {booking.Room.Capacity}");
+                Console.WriteLine($"  Room details: {booking.Room.RoomName}");
             }
             else
             {
@@ -165,7 +166,7 @@ public class RoomBookingsController : ControllerBase
                 var roomDirect = await _db.Rooms.FindAsync(booking.RoomId);
                 if (roomDirect != null)
                 {
-                    Console.WriteLine($"  Direct room lookup: {roomDirect.RoomName}, {roomDirect.Location}, {roomDirect.Capacity}");
+                    Console.WriteLine($"  Direct room lookup: {roomDirect.RoomName}");
                 }
                 else
                 {
@@ -178,12 +179,11 @@ public class RoomBookingsController : ControllerBase
         {
             Id = rb.Id,
             RoomName = rb.Room?.RoomName ?? "Unknown Room",
-            RoomLocation = rb.Room?.Location ?? "Unknown Location",
-            RoomCapacity = rb.Room?.Capacity ?? 0,
             BookingDate = rb.BookingDate.ToString("yyyy-MM-dd"),
             StartTime = rb.StartTime.ToString(),
             EndTime = rb.EndTime.ToString(),
             Purpose = rb.Purpose,
+            NumberOfPeople = rb.NumberOfPeople,
             DurationHours = (rb.EndTime.ToTimeSpan() - rb.StartTime.ToTimeSpan()).TotalHours
         });
 
@@ -233,8 +233,6 @@ public class RoomBookingsController : ControllerBase
             {
                 RoomId = room.Id,
                 RoomName = room.RoomName,
-                Capacity = room.Capacity,
-                Location = room.Location,
                 TimeSlots = timeSlots
             };
         }).ToList();

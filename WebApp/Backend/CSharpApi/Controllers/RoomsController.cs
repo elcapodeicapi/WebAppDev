@@ -27,9 +27,7 @@ public class RoomsController : ControllerBase
             .Select(r => new
             {
                 r.Id,
-                r.RoomName,
-                r.Capacity,
-                r.Location
+                r.RoomName
             })
             .ToListAsync();
         
@@ -57,8 +55,6 @@ public class RoomsController : ControllerBase
         {
             r.Id,
             r.RoomName,
-            r.Capacity,
-            r.Location,
             Bookings = r.RoomBookings
                 .Where(rb => rb.BookingDate.Date == targetDate)
                 .OrderBy(rb => rb.StartTime)
@@ -68,7 +64,8 @@ public class RoomsController : ControllerBase
                     rb.BookingDate,
                     StartTime = rb.StartTime.ToString(),
                     EndTime = rb.EndTime.ToString(),
-                    rb.Purpose
+                    rb.Purpose,
+                    rb.NumberOfPeople
                 })
         });
 
@@ -121,7 +118,8 @@ public class RoomsController : ControllerBase
             BookingDate = datePart.Date,
             StartTime = startTimeOnly,
             EndTime = endTimeOnly,
-            Purpose = req.Purpose
+            Purpose = req.Purpose,
+            NumberOfPeople = req.NumberOfPeople
         };
 
         _db.RoomBookings.Add(booking);

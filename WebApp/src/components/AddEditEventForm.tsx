@@ -236,6 +236,7 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
               date,
               startTime,
               durationHours: duration,
+              numberOfPeople: selectedAttendees.length + 1, // Include host
               purpose: `Event: ${title}`
             });
             console.log('Room booking successful');

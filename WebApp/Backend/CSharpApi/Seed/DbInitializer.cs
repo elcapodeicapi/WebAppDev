@@ -37,15 +37,15 @@ public static class DbInitializer
         {
             var rooms = new List<Rooms>
             {
-                new() { RoomName = "Room 1", Capacity = 4, Location = "Floor 1" },
-                new() { RoomName = "Room 2", Capacity = 6, Location = "Floor 1" },
-                new() { RoomName = "Room 3", Capacity = 8, Location = "Floor 1" },
-                new() { RoomName = "Room 4", Capacity = 4, Location = "Floor 2" },
-                new() { RoomName = "Room 5", Capacity = 10, Location = "Floor 2" },
-                new() { RoomName = "Room 6", Capacity = 6, Location = "Floor 2" },
-                new() { RoomName = "Room 7", Capacity = 12, Location = "Floor 3" },
-                new() { RoomName = "Room 8", Capacity = 8, Location = "Floor 3" },
-                new() { RoomName = "Room 9", Capacity = 4, Location = "Floor 3" }
+                new() { RoomName = "Room 1" },
+                new() { RoomName = "Room 2" },
+                new() { RoomName = "Room 3" },
+                new() { RoomName = "Room 4" },
+                new() { RoomName = "Room 5" },
+                new() { RoomName = "Room 6" },
+                new() { RoomName = "Room 7" },
+                new() { RoomName = "Room 8" },
+                new() { RoomName = "Room 9" }
             };
 
             await db.Rooms.AddRangeAsync(rooms);

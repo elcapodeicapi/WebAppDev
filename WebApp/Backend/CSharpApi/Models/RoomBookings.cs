@@ -9,4 +9,5 @@ public class RoomBookings
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
     public string? Purpose { get; set; }
+    public int NumberOfPeople { get; set; }
 }

@@ -82,8 +82,7 @@ const ProfilePage: React.FC = () => {
             console.log(`Booking ${index}:`, {
               id: booking.Id,
               roomName: booking.RoomName,
-              roomLocation: booking.RoomLocation,
-              roomCapacity: booking.RoomCapacity,
+              numberOfPeople: booking.NumberOfPeople || booking.numberOfPeople,
               bookingDate: booking.BookingDate,
               startTime: booking.StartTime,
               endTime: booking.EndTime,
@@ -377,8 +376,7 @@ const ProfilePage: React.FC = () => {
                             ⏰ {booking.StartTime || 'Unknown'} - {booking.EndTime || 'Unknown'}
                           </div>
                           <div style={styles.itemDetails}>
-                            👥 {booking.RoomCapacity || booking.roomCapacity || 'Unknown'} people • 
-                            📍 {booking.RoomLocation || booking.roomLocation || 'Unknown location'}
+                            👥 {booking.numberOfPeople || booking.NumberOfPeople || 'Unknown'} people
                           </div>
                           {booking.Purpose && (
                             <div style={styles.itemDetails}>📝 {booking.Purpose}</div>

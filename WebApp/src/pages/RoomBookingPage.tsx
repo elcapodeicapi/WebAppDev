@@ -10,13 +10,12 @@ type BookingFormState = {
   startTime: string;
   durationHours: string;
   purpose: string;
+  numberOfPeople: string;
 };
 
 type Room = {
   id: number;
   RoomName: string;
-  Capacity: number;
-  Location: string;
 };
 
 export default function RoomBookingPage() {
@@ -27,6 +26,7 @@ export default function RoomBookingPage() {
     startTime: '09:00',
     durationHours: '1',
     purpose: '',
+    numberOfPeople: '1',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,9 +54,7 @@ export default function RoomBookingPage() {
         // Normalize room data
         const normalizedRooms = data.map((room: any) => ({
           id: room.Id || room.id || room.RoomId,
-          RoomName: room.RoomName || room.roomName || room.Name || `Room ${room.Id || room.id || room.RoomId}`,
-          Capacity: room.Capacity || room.capacity || 0,
-          Location: room.Location || room.location || 'Unknown'
+          RoomName: room.RoomName || room.roomName || room.Name || `Room ${room.Id || room.id || room.RoomId}`
         }));
         
         console.log('Normalized rooms:', normalizedRooms);
@@ -85,8 +83,14 @@ export default function RoomBookingPage() {
     }
 
     // Validation
-    if (!form.roomId || !form.date || !form.startTime || !form.durationHours) {
+    if (!form.roomId || !form.date || !form.startTime || !form.durationHours || !form.numberOfPeople) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    const numberOfPeopleNum = parseInt(form.numberOfPeople);
+    if (isNaN(numberOfPeopleNum) || numberOfPeopleNum < 1) {
+      setError('Number of people must be at least 1');
       return;
     }
 
@@ -98,6 +102,7 @@ export default function RoomBookingPage() {
         date: form.date,
         startTime: form.startTime,
         durationHours: parseInt(form.durationHours),
+        numberOfPeople: numberOfPeopleNum,
         purpose: form.purpose || 'Meeting',
       };
 
@@ -165,6 +170,7 @@ Booking ID: ${data.bookingId}`);
         startTime: '09:00',
         durationHours: '1',
         purpose: '',
+        numberOfPeople: '1',
       });
       setSelectedRoom(null);
       
@@ -219,8 +225,6 @@ Booking ID: ${data.bookingId}`);
                 >
                   <div className="room-info">
                     <h3>{room.RoomName}</h3>
-                    <p>👥 {room.Capacity} people</p>
-                    <p>📍 {room.Location}</p>
                   </div>
                   <div className="room-select-indicator">
                     {selectedRoom?.id === room.id ? '✅ Selected' : '👆 Click to select'}
@@ -239,8 +243,6 @@ Booking ID: ${data.bookingId}`);
             <h2>📅 Booking Details</h2>
             <div className="selected-room-info">
               <p><strong>Selected Room:</strong> {selectedRoom.RoomName}</p>
-              <p><strong>Capacity:</strong> {selectedRoom.Capacity} people</p>
-              <p><strong>Location:</strong> {selectedRoom.Location}</p>
             </div>
             
             <form onSubmit={handleSubmit} className="booking-form">
@@ -294,6 +296,20 @@ Booking ID: ${data.bookingId}`);
                 </div>
 
                 <div className="form-group">
+                  <label>👥 Number of People *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.numberOfPeople}
+                    onChange={e => setForm({ ...form, numberOfPeople: e.target.value })}
+                    placeholder="1"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
                   <label>📝 Purpose</label>
                   <input
                     type="text"
@@ -323,6 +339,7 @@ Booking ID: ${data.bookingId}`);
                       startTime: '09:00',
                       durationHours: '1',
                       purpose: '',
+                      numberOfPeople: '1',
                     });
                   }}
                 >

@@ -94,6 +94,7 @@ using (var scope = app.Services.CreateScope())
             HasColumn(connection, "RoomBookings", "Id") &&
             HasColumn(connection, "RoomBookings", "RoomId") &&
             HasColumn(connection, "RoomBookings", "UserId") &&
+            HasColumn(connection, "RoomBookings", "NumberOfPeople") &&
             HasColumn(connection, "EventReviews", "Id") &&
             HasColumn(connection, "EventReviews", "EventId") &&
             HasColumn(connection, "EventReviews", "UserId") &&
