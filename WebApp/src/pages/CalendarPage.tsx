@@ -9,6 +9,7 @@ import { apiGet, apiDelete, apiPost } from '../lib/api';
 import '../CalendarPage.css';
 import Navbar from '../components/NavBar';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 export default function CalendarPage() {
   // ---- STATE ----
@@ -27,6 +28,7 @@ export default function CalendarPage() {
   const [editingMeeting, setEditingMeeting] = useState<MeetingRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [invitedEvents, setInvitedEvents] = useState<any[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteEventId, setDeleteEventId] = useState<string | number | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -38,9 +40,13 @@ export default function CalendarPage() {
       try {
         setLoading(true);
         // Show only events the logged-in user is participating in (e.g., Going)
-        const response = await apiGet<any[]>('/api/events/mine');
+        const [mine, invited] = await Promise.all([
+          apiGet<any[]>('/api/events/mine'),
+          apiGet<any[]>('/api/events/invited').catch(() => [] as any[]),
+        ]);
+        setInvitedEvents(invited);
         // Map backend response to MeetingRoom format
-        const mapped = response.map((evt: any) => {
+        const mapped = mine.map((evt: any) => {
           const eventDateTime = new Date(evt.eventDate);
           
           // Extract time from eventDate as "H AM/PM" format
@@ -69,6 +75,7 @@ export default function CalendarPage() {
         setError('Failed to load events');
         // Set empty meetings array on error to allow calendar to render
         setMeetings([]);
+        setInvitedEvents([]);
       } finally {
         setLoading(false);
       }
@@ -246,6 +253,23 @@ export default function CalendarPage() {
   const tomorrowKey = getDateString(tomorrow);
   const tomorrowMeetings = meetings.filter(m => m.date === tomorrowKey);
 
+  const invitedItems = invitedEvents
+    .map((evt: any) => {
+      const dt = new Date(evt.eventDate);
+      const hours = dt.getHours();
+      const isAM = hours < 12;
+      const displayHour = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+      const startTimeStr = `${displayHour} ${isAM ? 'AM' : 'PM'}`;
+      return {
+        id: evt.id?.toString?.() ?? String(evt.id),
+        title: evt.title,
+        date: dt.toISOString().split('T')[0],
+        startTime: startTimeStr,
+        location: evt.location,
+      };
+    })
+    .filter(Boolean);
+
   return (
     <div className="calendar-page-container" style={{ color: '#000', minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Navbar />
@@ -255,29 +279,42 @@ export default function CalendarPage() {
         <div className="calendar-container" style={{ color: '#000' }}>
           <h1>📅 Weekly Calendar</h1>
 
-          {tomorrowMeetings.length > 0 && (
-            <div
-              style={{
-                margin: '0.75rem 0',
-                padding: '0.75rem 1rem',
-                border: '1px solid #ddd',
-                borderRadius: 8,
-                background: '#fff',
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Reminder</div>
-              <div style={{ color: '#333', marginBottom: '0.5rem' }}>
-                You have {tomorrowMeetings.length} event{tomorrowMeetings.length === 1 ? '' : 's'} tomorrow.
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <div
+            style={{
+              margin: '0.75rem 0',
+              padding: '0.75rem 1rem',
+              border: '1px solid #ddd',
+              borderRadius: 8,
+              background: '#fff',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ fontWeight: 700 }}>Notifications</div>
+              {invitedItems.length > 0 && (
+                <Link to="/invitations" style={{ fontSize: '0.9rem' }}>
+                  View invitations ({invitedItems.length})
+                </Link>
+              )}
+            </div>
+
+            {invitedItems.length === 0 && tomorrowMeetings.length === 0 ? (
+              <div style={{ color: '#666', marginTop: '0.5rem' }}>No notifications.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                {invitedItems.map(inv => (
+                  <div key={`inv-${inv.id}`} style={{ color: '#333' }}>
+                    <strong>Invitation:</strong> {inv.title} — {inv.date} {inv.startTime}{inv.location ? ` (${inv.location})` : ''}
+                  </div>
+                ))}
+
                 {tomorrowMeetings.map(m => (
-                  <div key={m.id} style={{ color: '#333' }}>
-                    <strong>{m.startTime}</strong> — {m.title}{m.location ? ` (${m.location})` : ''}
+                  <div key={`rem-${m.id}`} style={{ color: '#333' }}>
+                    <strong>Reminder (tomorrow):</strong> {m.startTime} — {m.title}{m.location ? ` (${m.location})` : ''}
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="week-controls">
             <Button text="← Previous" onClick={() => changeWeek('prev')} />
