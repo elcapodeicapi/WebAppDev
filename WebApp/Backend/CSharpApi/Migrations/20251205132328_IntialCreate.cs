@@ -82,7 +82,7 @@ namespace WebAppDev.AuthApi.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "EventParticipation",
+                name: "EventParticipations",
                 columns: table => new
                 {
                     UserId = table.Column<int>(type: "INTEGER", nullable: false),
@@ -91,15 +91,15 @@ namespace WebAppDev.AuthApi.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_EventParticipation", x => new { x.EventId, x.UserId });
+                    table.PrimaryKey("PK_EventParticipations", x => new { x.EventId, x.UserId });
                     table.ForeignKey(
-                        name: "FK_EventParticipation_Events_EventId",
+                        name: "FK_EventParticipations_Events_EventId",
                         column: x => x.EventId,
                         principalTable: "Events",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_EventParticipation_Users_UserId",
+                        name: "FK_EventParticipations_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
@@ -209,8 +209,8 @@ namespace WebAppDev.AuthApi.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_EventParticipation_UserId",
-                table: "EventParticipation",
+                name: "IX_EventParticipations_UserId",
+                table: "EventParticipations",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
@@ -256,7 +256,7 @@ namespace WebAppDev.AuthApi.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "EventParticipation");
+                name: "EventParticipations");
 
             migrationBuilder.DropTable(
                 name: "Friendships");

@@ -33,7 +33,7 @@ namespace WebAppDev.AuthApi.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("EventParticipation");
+                    b.ToTable("EventParticipations");
                 });
 
             modelBuilder.Entity("Events", b =>
@@ -277,7 +277,7 @@ namespace WebAppDev.AuthApi.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("User", "user")
+                    b.HasOne("User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -285,7 +285,7 @@ namespace WebAppDev.AuthApi.Migrations
 
                     b.Navigation("Event");
 
-                    b.Navigation("user");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GroupsMembership", b =>

@@ -36,7 +36,7 @@ namespace WebAppDev.AuthApi.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("EventParticipation");
+                    b.ToTable("EventParticipations");
                 });
 
             modelBuilder.Entity("Events", b =>

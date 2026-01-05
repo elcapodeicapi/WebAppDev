@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 import { HOURS } from './constants';
 import { apiGet, apiPost, apiPut } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface EventResponse {
   id: number;
@@ -107,6 +108,7 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
   const [description, setDescription] = useState(event?.description || '');
   const [location, setLocation] = useState(event?.location || '');
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -153,6 +155,17 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
       setError(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (event?.id && onDelete) {
+      setShowDeleteConfirm(false);
+      onDelete(event.id);
     }
   };
 
@@ -213,8 +226,8 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         </div>
         <div className="form-group">
           <label>Location (Room):</label>
-          <select value={location} onChange={e => setLocation(e.target.value)} required>
-            <option value="">Select a room</option>
+          <select value={location} onChange={e => setLocation(e.target.value)}>
+            <option value="">Select a room (optional)</option>
             <option value="A">Room A</option>
             <option value="B">Room B</option>
             <option value="C">Room C</option>
@@ -231,10 +244,20 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
           <button type="submit" className="btn primary" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>
           <button type="button" className="btn" onClick={onCancel} disabled={loading}>Cancel</button>
           {!isAdding && event && onDelete && (
-            <button type="button" className="btn delete" onClick={() => onDelete(event.id)} disabled={loading}>Delete</button>
+            <button type="button" className="btn delete" onClick={handleDelete} disabled={loading}>Delete</button>
           )}
         </div>
       </form>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Event"
+        message="Are you sure you want to delete this event? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+        isLoading={loading}
+      />
     </div>
   );
 }

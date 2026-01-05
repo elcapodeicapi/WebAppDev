@@ -27,6 +27,16 @@ public class AppDbContext : DbContext
             .HasKey(r => new { r.RoomId, r.UserId });
         modelBuilder.Entity<EventParticipation>()
             .HasKey(e => new { e.EventId, e.UserId });
+        modelBuilder.Entity<EventParticipation>()
+            .HasOne(ep => ep.User)
+            .WithMany()
+            .HasForeignKey(ep => ep.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<EventParticipation>()
+            .HasOne(ep => ep.Event)
+            .WithMany(e => e.EventParticipation)
+            .HasForeignKey(ep => ep.EventId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
