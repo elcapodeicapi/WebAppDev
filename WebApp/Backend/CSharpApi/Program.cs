@@ -7,7 +7,7 @@ using WebAppDev.AuthApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+
 builder.Services.AddControllers();
 
 // OpenAPI/Swagger
@@ -22,13 +22,13 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// CORS for Vite dev server
+
 const string ClientCorsPolicy = "ClientCorsPolicy";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(ClientCorsPolicy, policy =>
     {
-        // Frontend dev server runs on 5173 (Vite default). Allow that origin for dev.
+        
         policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()
@@ -93,9 +93,13 @@ using (var scope = app.Services.CreateScope())
             HasColumn(connection, "Rooms", "Id") &&
             HasColumn(connection, "RoomBookings", "Id") &&
             HasColumn(connection, "RoomBookings", "RoomId") &&
-            HasColumn(connection, "RoomBookings", "UserId");
+            HasColumn(connection, "RoomBookings", "UserId") &&
+            HasColumn(connection, "EventReviews", "Id") &&
+            HasColumn(connection, "EventReviews", "EventId") &&
+            HasColumn(connection, "EventReviews", "UserId") &&
+            HasColumn(connection, "EventReviews", "Comment");
 
-        // Important on Windows: close connection before deleting the SQLite file.
+        
         connection.Close();
 
         if (!schemaOk)
@@ -106,10 +110,29 @@ using (var scope = app.Services.CreateScope())
     }
     else
     {
-        // In production, apply migrations
+        
         await db.Database.MigrateAsync();
     }
     await DbInitializer.SeedAsync(db);
+    
+    // Ensure OfficeAttendances table exists for development
+    if (app.Environment.IsDevelopment())
+    {
+        var connection = db.Database.GetDbConnection();
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            CREATE TABLE IF NOT EXISTS OfficeAttendances (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                UserId INTEGER NOT NULL,
+                Date TEXT NOT NULL,
+                Status TEXT NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL,
+                FOREIGN KEY (UserId) REFERENCES Users (Id)
+            )";
+        command.ExecuteNonQuery();
+    }
 }
 
 app.Run();

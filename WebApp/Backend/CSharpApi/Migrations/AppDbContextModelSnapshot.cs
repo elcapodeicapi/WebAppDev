@@ -35,6 +35,41 @@ namespace WebAppDev.AuthApi.Migrations
                     b.ToTable("EventParticipations");
                 });
 
+            modelBuilder.Entity("EventReview", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("EventId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("EventReviews");
+                });
+
             modelBuilder.Entity("Events", b =>
                 {
                     b.Property<int>("Id")
@@ -111,10 +146,8 @@ namespace WebAppDev.AuthApi.Migrations
 
             modelBuilder.Entity("RoomBookings", b =>
                 {
-                    b.Property<int>("RoomId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("UserId")
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("BookingDate")
@@ -126,10 +159,18 @@ namespace WebAppDev.AuthApi.Migrations
                     b.Property<string>("Purpose")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("RoomId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<TimeOnly>("StartTime")
                         .HasColumnType("TEXT");
 
-                    b.HasKey("RoomId", "UserId");
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoomId");
 
                     b.HasIndex("UserId");
 
@@ -240,6 +281,36 @@ namespace WebAppDev.AuthApi.Migrations
                     b.ToTable("Friendships");
                 });
 
+            modelBuilder.Entity("WebAppDev.AuthApi.Models.OfficeAttendance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("OfficeAttendances");
+                });
+
             modelBuilder.Entity("WebAppDev.AuthApi.Models.Session", b =>
                 {
                     b.Property<string>("Id")
@@ -272,6 +343,25 @@ namespace WebAppDev.AuthApi.Migrations
                 {
                     b.HasOne("Events", "Event")
                         .WithMany("EventParticipation")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EventReview", b =>
+                {
+                    b.HasOne("Events", "Event")
+                        .WithMany("Reviews")
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -340,6 +430,17 @@ namespace WebAppDev.AuthApi.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("WebAppDev.AuthApi.Models.OfficeAttendance", b =>
+                {
+                    b.HasOne("User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("WebAppDev.AuthApi.Models.Session", b =>
                 {
                     b.HasOne("User", "User")
@@ -354,6 +455,8 @@ namespace WebAppDev.AuthApi.Migrations
             modelBuilder.Entity("Events", b =>
                 {
                     b.Navigation("EventParticipation");
+
+                    b.Navigation("Reviews");
                 });
 
             modelBuilder.Entity("Groups", b =>

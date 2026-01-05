@@ -53,23 +53,6 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
     TimeSlots: Array<{ Time: string; Available: boolean }>;
   };
 
-  function startTimeToHour24(value: string): number | null {
-    const match = value.trim().match(/^(\d{1,2})\s*(AM|PM)$/i);
-    if (!match) return null;
-    const hour12 = parseInt(match[1], 10);
-    const isPM = match[2].toUpperCase() === 'PM';
-    if (Number.isNaN(hour12) || hour12 < 1 || hour12 > 12) return null;
-    if (hour12 === 12) return isPM ? 12 : 0;
-    return isPM ? hour12 + 12 : hour12;
-  }
-
-  function slotStartHour24(timeRange: string): number | null {
-    // e.g. "08:00 - 09:00" -> 8
-    const match = (timeRange || '').match(/^(\d{2}):\d{2}\s*-/);
-    if (!match) return null;
-    const hour = parseInt(match[1], 10);
-    return Number.isNaN(hour) ? null : hour;
-  }
   // Helper to extract date from either EventResponse or MeetingRoom
   const getDateValue = () => {
     if (!event) return '';
@@ -136,9 +119,9 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState('');
-  const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([]);
-  const [loadingRooms, setLoadingRooms] = useState(false);
-  const [bookingError, setBookingError] = useState('');
+  const [, setAvailableRooms] = useState<AvailableRoom[]>([]);
+  const [, setLoadingRooms] = useState(false);
+  const [, setBookingError] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -176,19 +159,6 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
       setLoadingRooms(false);
     }
   }
-
-  const availableForSelection = useMemo(() => {
-    const startHour = startTimeToHour24(startTime);
-    if (!date || startHour === null || !duration || duration < 1) return [];
-    const requiredHours = Array.from({ length: duration }, (_, i) => startHour + i);
-    return availableRooms.filter(r => {
-      if (!Array.isArray(r.TimeSlots)) return false;
-      return requiredHours.every(h => {
-        const slot = r.TimeSlots.find(s => slotStartHour24(s.Time) === h);
-        return !!slot?.Available;
-      });
-    });
-  }, [availableRooms, date, duration, startTime]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

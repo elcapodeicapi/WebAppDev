@@ -18,34 +18,99 @@ public class EventsController : ControllerBase
         _db = db;
     }
 
+    private static EventDto MapEventToDto(Events e)
+    {
+        return new EventDto
+        {
+            Id = e.Id,
+            Title = e.Title,
+            Description = e.Description,
+            EventDate = e.EventDate,
+            DurationHours = e.DurationHours,
+            Host = e.Host,
+            Attendees = e.Attendees,
+            Location = e.Location,
+            CreatedBy = e.CreatedBy,
+            EventParticipation = (e.EventParticipation ?? new List<EventParticipation>())
+                .Select(p => new EventParticipationDto
+                {
+                    UserId = p.UserId,
+                    EventId = p.EventId,
+                    Status = p.Status,
+                    User = p.User == null
+                        ? null
+                        : new UserSummaryDto
+                        {
+                            Id = p.User.Id,
+                            Name = p.User.Name,
+                            Username = p.User.Username,
+                            Role = p.User.Role,
+                        }
+                })
+                .ToList(),
+            Reviews = (e.Reviews ?? new List<EventReview>())
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => new EventReviewDto
+                {
+                    Id = r.Id,
+                    EventId = r.EventId,
+                    UserId = r.UserId,
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt,
+                    UpdatedAt = r.UpdatedAt,
+                    User = r.User == null
+                        ? null
+                        : new UserSummaryDto
+                        {
+                            Id = r.User.Id,
+                            Name = r.User.Name,
+                            Username = r.User.Username,
+                            Role = r.User.Role,
+                        }
+                })
+                .ToList(),
+        };
+    }
+
     // GET: api/events/mine - events I'm participating in
     [HttpGet("mine")]
     [SessionRequired]
-    public async Task<ActionResult<IEnumerable<Events>>> GetMine()
+    public async Task<ActionResult<IEnumerable<EventDto>>> GetMine()
     {
         var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
         var userId = (int)userIdObj;
         var list = await _db.Events
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(e => e.EventParticipation)
-            .Where(e => e.EventParticipation.Any(p => p.UserId == userId && (p.Status == "Host" || p.Status == "Going")))
+                .ThenInclude(p => p.User)
+            .Include(e => e.Reviews)
+                .ThenInclude(r => r.User)
+            .Where(e => e.EventParticipation.Any(p => p.UserId == userId))
             .OrderBy(e => e.EventDate)
             .ToListAsync();
-        return Ok(list);
+        return Ok(list.Select(MapEventToDto));
     }
 
     // GET: api/events/invited - events where I'm invited
     [HttpGet("invited")]
     [SessionRequired]
-    public async Task<ActionResult<IEnumerable<Events>>> GetInvited()
+    public async Task<ActionResult<IEnumerable<EventDto>>> GetInvited()
     {
         var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
         var userId = (int)userIdObj;
         var list = await _db.Events
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(e => e.EventParticipation)
+                .ThenInclude(p => p.User)
+            .Include(e => e.Reviews)
+                .ThenInclude(r => r.User)
             .Where(e => e.EventParticipation.Any(p => p.UserId == userId && p.Status == "Invited"))
             .OrderBy(e => e.EventDate)
             .ToListAsync();
-        return Ok(list);
+        return Ok(list.Select(MapEventToDto));
     }
 
     // GET: api/events/admin/all - all events with details (admin only)
@@ -62,7 +127,12 @@ public class EventsController : ControllerBase
         if (user?.Role != "Admin") return BadRequest(new { message = "Only admins can access this endpoint" });
 
         var list = await _db.Events
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(e => e.EventParticipation)
+                .ThenInclude(p => p.User)
+            .Include(e => e.Reviews)
+                .ThenInclude(r => r.User)
             .OrderByDescending(e => e.EventDate)
             .Select(e => new
             {
@@ -75,7 +145,9 @@ public class EventsController : ControllerBase
                 e.Location,
                 CreatedByUser = _db.Users.Where(u => u.Id == e.CreatedBy).Select(u => u.Name).FirstOrDefault(),
                 ParticipantCount = e.EventParticipation.Count,
-                Participants = e.EventParticipation.Join(_db.Users, p => p.UserId, u => u.Id, (p, u) => new { u.Id, u.Name, u.Username, p.Status })
+                Participants = e.EventParticipation.Select(p => new { p.UserId, p.Status, User = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Username, p.User.Role } }),
+                ReviewCount = e.Reviews.Count,
+                Reviews = e.Reviews.OrderByDescending(r => r.CreatedAt).Select(r => new { r.Id, r.UserId, r.Rating, r.Comment, r.CreatedAt, r.UpdatedAt, User = r.User == null ? null : new { r.User.Id, r.User.Name, r.User.Username, r.User.Role } })
             })
             .ToListAsync();
         return Ok(list);
@@ -83,35 +155,50 @@ public class EventsController : ControllerBase
 
     // GET: api/events
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Events>>> GetAll()
+    public async Task<ActionResult<IEnumerable<EventDto>>> GetAll()
     {
         var list = await _db.Events
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(e => e.EventParticipation)
+                .ThenInclude(p => p.User)
+            .Include(e => e.Reviews)
+                .ThenInclude(r => r.User)
             .ToListAsync();
-        return Ok(list);
+        return Ok(list.Select(MapEventToDto));
     }
 
     // GET: api/events/upcoming
     [HttpGet("upcoming")]
-    public async Task<ActionResult<IEnumerable<Events>>> GetUpcoming()
+    public async Task<ActionResult<IEnumerable<EventDto>>> GetUpcoming()
     {
         var list = await _db.Events
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(e => e.EventParticipation)
+                .ThenInclude(p => p.User)
+            .Include(e => e.Reviews)
+                .ThenInclude(r => r.User)
             .Where(e => e.EventDate >= DateTime.UtcNow)
             .OrderBy(e => e.EventDate)
             .ToListAsync();
-        return Ok(list);
+        return Ok(list.Select(MapEventToDto));
     }
 
     // GET: api/events/{id}
     [HttpGet("{id}")]
-    public async Task<ActionResult<Events>> Get(int id)
+    public async Task<ActionResult<EventDto>> Get(int id)
     {
         var item = await _db.Events
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(e => e.EventParticipation)
+                .ThenInclude(p => p.User)
+            .Include(e => e.Reviews)
+                .ThenInclude(r => r.User)
             .FirstOrDefaultAsync(e => e.Id == id);
         if (item == null) return NotFound();
-        return Ok(item);
+        return Ok(MapEventToDto(item));
     }
 
     // POST: api/events
@@ -245,6 +332,7 @@ public class EventsController : ControllerBase
 
         await _db.SaveChangesAsync();
 
+        // Return the newly created event via GET (DTO includes participants/reviews)
         return CreatedAtAction(nameof(Get), new { id = evt.Id }, evt);
     }
 
@@ -311,42 +399,43 @@ public class EventsController : ControllerBase
         evt.Attendees = req.Attendees;
         evt.Location = req.Location;
 
-        // If admin is changing the host, update CreatedBy and EventParticipation
-        if (user?.Role == "Admin" && !string.IsNullOrWhiteSpace(req.Host))
+        // Ensure newly added attendees are invited (EventParticipation status = Invited)
+        // The frontend stores attendees as a comma-separated username list.
+        if (!string.IsNullOrWhiteSpace(req.Attendees))
         {
-            var newHostUser = await _db.Users.FirstOrDefaultAsync(u => 
-                u.Name == req.Host || 
-                u.Username == req.Host || 
-                u.Email == req.Host);
-            if (newHostUser != null && newHostUser.Id != evt.CreatedBy)
+            var usernames = req.Attendees
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (usernames.Length > 0)
             {
-                // Remove old host from EventParticipation
-                var oldHostParticipation = await _db.Set<EventParticipation>()
-                    .FirstOrDefaultAsync(p => p.EventId == id && p.UserId == evt.CreatedBy && (p.Status == "Host" || p.Status == "Going"));
-                if (oldHostParticipation != null)
-                {
-                    _db.Set<EventParticipation>().Remove(oldHostParticipation);
-                }
+                var existingUserIds = await _db.EventParticipations
+                    .Where(p => p.EventId == id)
+                    .Select(p => p.UserId)
+                    .ToListAsync();
 
-                // Update CreatedBy to new host
-                evt.CreatedBy = newHostUser.Id;
+                var usersToInvite = await _db.Users
+                    .Where(u => usernames.Contains(u.Username))
+                    .Select(u => new { u.Id, u.Username })
+                    .ToListAsync();
 
-                // Add new host to EventParticipation with Going status
-                var newHostParticipation = await _db.Set<EventParticipation>()
-                    .FirstOrDefaultAsync(p => p.EventId == id && p.UserId == newHostUser.Id);
-                
-                if (newHostParticipation == null)
+                foreach (var u in usersToInvite)
                 {
-                    _db.Set<EventParticipation>().Add(new EventParticipation
+                    // Don't create a duplicate row (composite PK)
+                    if (existingUserIds.Contains(u.Id)) continue;
+
+                    // Don't invite the creator as an attendee
+                    if (u.Id == evt.CreatedBy) continue;
+
+                    _db.EventParticipations.Add(new EventParticipation
                     {
                         EventId = id,
-                        UserId = newHostUser.Id,
-                        Status = "Going"
+                        UserId = u.Id,
+                        Status = "Invited"
                     });
-                }
-                else
-                {
-                    newHostParticipation.Status = "Going";
                 }
             }
         }
@@ -561,5 +650,94 @@ public class EventsController : ControllerBase
             .Join(_db.Users, p => p.UserId, u => u.Id, (p, u) => new { u.Id, u.Username, p.Status })
             .ToListAsync();
         return Ok(list);
+    }
+
+    // POST: api/events/{id}/reviews
+    // Create or update the logged-in user's review for this event (must be an attendee)
+    [HttpPost("{id}/reviews")]
+    [SessionRequired]
+    public async Task<ActionResult<EventReviewDto>> UpsertReview(int id, [FromBody] CreateEventReviewRequest req)
+    {
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
+        var userId = (int)userIdObj;
+
+        if (req == null)
+        {
+            return BadRequest(new { error = "Body is required." });
+        }
+
+        if (req.Rating.HasValue && (req.Rating.Value < 1 || req.Rating.Value > 5))
+        {
+            return BadRequest(new { error = "Rating must be between 1 and 5." });
+        }
+
+        var comment = (req.Comment ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(comment))
+        {
+            return BadRequest(new { error = "Comment is required." });
+        }
+
+        var evExists = await _db.Events.AsNoTracking().AnyAsync(e => e.Id == id);
+        if (!evExists)
+        {
+            return NotFound(new { error = "Event not found." });
+        }
+
+        // Only attendees (Going/Host) can review
+        var isAttendee = await _db.EventParticipations.AsNoTracking().AnyAsync(p =>
+            p.EventId == id &&
+            p.UserId == userId &&
+            (p.Status == "Going" || p.Status == "Host"));
+
+        if (!isAttendee)
+        {
+            return Forbid();
+        }
+
+        var existing = await _db.EventReviews
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.EventId == id && r.UserId == userId);
+
+        if (existing == null)
+        {
+            existing = new EventReview
+            {
+                EventId = id,
+                UserId = userId,
+                Rating = req.Rating,
+                Comment = comment,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            };
+            _db.EventReviews.Add(existing);
+        }
+        else
+        {
+            existing.Rating = req.Rating;
+            existing.Comment = comment;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync();
+
+        // Reload user (in case it wasn't included on insert)
+        if (existing.User == null)
+        {
+            existing.User = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        }
+
+        var dto = new EventReviewDto
+        {
+            Id = existing.Id,
+            EventId = existing.EventId,
+            UserId = existing.UserId,
+            Rating = existing.Rating,
+            Comment = existing.Comment,
+            CreatedAt = existing.CreatedAt,
+            UpdatedAt = existing.UpdatedAt,
+            User = existing.User == null ? null : new UserSummaryDto { Id = existing.User.Id, Name = existing.User.Name, Username = existing.User.Username, Role = existing.User.Role }
+        };
+
+        return Ok(dto);
     }
 }

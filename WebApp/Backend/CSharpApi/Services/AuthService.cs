@@ -15,7 +15,7 @@ public class AuthService
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
-        // Validation already done by model binder, but double-check unique constraints
+        
         var existsUsername = await _db.Users.AnyAsync(u => u.Username == request.Username);
         if (existsUsername)
             return new AuthResponse { Success = false, Message = "Username already in use" };
@@ -95,10 +95,10 @@ public class AuthService
         var session = await _db.Sessions.Include(s => s.User).SingleOrDefaultAsync(s => s.Id == sid);
         if (session is null || session.User is null) return (false, null, 0);
         if (session.Revoked || session.ExpiresAt <= DateTime.UtcNow) return (false, null, 0);
-        // sliding expiration: update LastActivity and extend expiry by up to 8 hours window
+        
         session.LastActivityUtc = DateTime.UtcNow;
         var newExpiry = DateTime.UtcNow.AddHours(8);
-        // cap sliding to max of newExpiry
+        
         session.ExpiresAt = newExpiry;
         await _db.SaveChangesAsync();
         var isAdmin = string.Equals(session.User.Role, "Admin", StringComparison.OrdinalIgnoreCase);

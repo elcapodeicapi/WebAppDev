@@ -3,7 +3,33 @@ import { useEffect, useMemo, useState } from 'react';
 import '../App.css';
 import '../CalendarPage.css';
 import Navbar from '../components/NavBar';
-import { apiGet } from '../lib/api';
+import { apiGet, apiPost } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+
+type UserSummary = {
+  id: number;
+  name: string;
+  username: string;
+  role: string;
+};
+
+type EventParticipation = {
+  userId: number;
+  eventId: number;
+  status: string;
+  user?: UserSummary | null;
+};
+
+type EventReview = {
+  id: number;
+  eventId: number;
+  userId: number;
+  rating?: number | null;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: UserSummary | null;
+};
 
 type EventItem = {
   id: number;
@@ -15,9 +41,14 @@ type EventItem = {
   attendees: string;
   location: string;
   createdBy?: number;
+  eventParticipation?: EventParticipation[];
+  reviews?: EventReview[];
 };
 
+type CreateReviewRequest = { rating?: number | null; comment: string };
+
 export default function EventsPage() {
+  const { user } = useAuth();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +56,11 @@ export default function EventsPage() {
   const [viewYear, setViewYear] = useState<number | null>(null);
   const [viewMonth, setViewMonth] = useState<number | null>(null); // 0-11
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [reviewRating, setReviewRating] = useState<string>('');
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewMsg, setReviewMsg] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -42,6 +78,16 @@ export default function EventsPage() {
     }
     load();
   }, []);
+
+  async function refreshEvents(keepEventId?: number) {
+    const res = await apiGet<EventItem[]>('/api/events');
+    const sorted = [...(res || [])].sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+    setEvents(sorted);
+    if (keepEventId) {
+      const idx = sorted.findIndex(e => e.id === keepEventId);
+      if (idx >= 0) setCurrentIndex(idx);
+    }
+  }
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, EventItem[]> = {};
@@ -83,6 +129,21 @@ export default function EventsPage() {
       setSelectedDate(key);
     }
   }, [currentIndex, events, selectedDate]);
+
+  // Keep review form pre-filled for the selected event
+  useEffect(() => {
+    setReviewMsg(null);
+    if (!user || !events || events.length === 0) {
+      setReviewRating('');
+      setReviewComment('');
+      return;
+    }
+    const idx = Math.min(Math.max(currentIndex, 0), events.length - 1);
+    const ev = events[idx];
+    const myReview = (ev.reviews || []).find(r => r.userId === user.id);
+    setReviewRating(myReview?.rating != null ? String(myReview.rating) : '');
+    setReviewComment(myReview?.comment ?? '');
+  }, [currentIndex, events, user]);
 
   function changeMonth(direction: 'prev' | 'next') {
     if (viewYear === null || viewMonth === null) return;
@@ -266,11 +327,51 @@ export default function EventsPage() {
                   {(() => {
                     const safeIndex = Math.min(Math.max(currentIndex, 0), events.length - 1);
                     const event = events[safeIndex];
-                    const isCreator = currentUser?.id === event.createdBy;
 
                     const start = new Date(event.eventDate);
                     const end = new Date(start.getTime() + event.durationHours * 60 * 60 * 1000);
                     const isPast = start.getTime() < Date.now();
+
+                    const myPart = user
+                      ? (event.eventParticipation || []).find(p => p.userId === user.id)
+                      : undefined;
+                    const isHost = !!user && (
+                      (event.createdBy != null && event.createdBy === user.id) ||
+                      (myPart?.status === 'Host')
+                    );
+
+                    const canWriteReview = !!user && user.role === 'Employee' && !!myPart && (myPart.status === 'Going' || myPart.status === 'Host');
+                    const reviews = event.reviews || [];
+                    const myReview = user ? reviews.find(r => r.userId === user.id) : undefined;
+
+                    async function submitReview() {
+                      if (!user) return;
+                      setReviewMsg(null);
+                      const comment = reviewComment.trim();
+                      if (!comment) {
+                        setReviewMsg('Please write a short review.');
+                        return;
+                      }
+
+                      const ratingNum = reviewRating ? parseInt(reviewRating, 10) : null;
+                      if (ratingNum != null && (isNaN(ratingNum) || ratingNum < 1 || ratingNum > 5)) {
+                        setReviewMsg('Rating must be between 1 and 5.');
+                        return;
+                      }
+
+                      setReviewBusy(true);
+                      try {
+                        const body: CreateReviewRequest = { comment, rating: ratingNum };
+                        await apiPost<CreateReviewRequest, any>(`/api/events/${event.id}/reviews`, body);
+                        setReviewMsg('Saved.');
+                        await refreshEvents(event.id);
+                      } catch (e: any) {
+                        setReviewMsg(e.message || 'Failed to save review');
+                      } finally {
+                        setReviewBusy(false);
+                      }
+                    }
+
                     return (
                       <div key={event.id} className="event-card">
                         <div className="event-card-header">
@@ -299,6 +400,85 @@ export default function EventsPage() {
                           </p>
                         )}
                         <p>{event.description}</p>
+
+                        {canWriteReview && (
+                          <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #eee' }}>
+                            <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Write a review</div>
+                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem' }}>
+                              <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 600 }}>Rating</span>
+                                <select
+                                  value={reviewRating}
+                                  onChange={e => setReviewRating(e.target.value)}
+                                  style={{ padding: '0.35rem 0.5rem', borderRadius: 4, border: '1px solid #ccc' }}
+                                  disabled={reviewBusy}
+                                >
+                                  <option value="">(optional)</option>
+                                  <option value="1">1</option>
+                                  <option value="2">2</option>
+                                  <option value="3">3</option>
+                                  <option value="4">4</option>
+                                  <option value="5">5</option>
+                                </select>
+                              </label>
+                            </div>
+
+                            <textarea
+                              value={reviewComment}
+                              onChange={e => setReviewComment(e.target.value)}
+                              rows={3}
+                              placeholder="Write a short review..."
+                              style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #ccc', resize: 'vertical' }}
+                              disabled={reviewBusy}
+                            />
+
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem' }}>
+                              <button className="primary" onClick={submitReview} disabled={reviewBusy}>
+                                {reviewBusy ? 'Saving…' : 'Save review'}
+                              </button>
+                              {reviewMsg && <span style={{ color: reviewMsg === 'Saved.' ? 'green' : 'red' }}>{reviewMsg}</span>}
+                            </div>
+
+                            {/* After saving, show only the employee's own review (not others) */}
+                            {myReview && (
+                              <div style={{ marginTop: '0.75rem' }}>
+                                <div style={{ fontWeight: 700, marginBottom: '0.4rem' }}>Your review</div>
+                                <div style={{ padding: '0.5rem 0.6rem', border: '1px solid #eee', borderRadius: 8, background: '#fff' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                    <div style={{ fontWeight: 600 }}>{myReview.rating != null ? `${myReview.rating}/5` : 'No rating'}</div>
+                                    <div style={{ color: '#777', fontSize: '0.85rem' }}>{new Date(myReview.updatedAt || myReview.createdAt).toLocaleString()}</div>
+                                  </div>
+                                  <div style={{ marginTop: '0.25rem', color: '#333' }}>{myReview.comment}</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {isHost && (
+                          <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #eee' }}>
+                            <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Reviews</div>
+                            {reviews.length === 0 ? (
+                              <div style={{ color: '#666' }}>No reviews yet.</div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {reviews.map(r => {
+                                  const name = r.user?.name || r.user?.username || `User ${r.userId}`;
+                                  const when = new Date(r.createdAt).toLocaleString();
+                                  return (
+                                    <div key={r.id} style={{ padding: '0.5rem 0.6rem', border: '1px solid #eee', borderRadius: 8, background: '#fff' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                        <div style={{ fontWeight: 600 }}>{name}{r.rating != null ? ` — ${r.rating}/5` : ''}</div>
+                                        <div style={{ color: '#777', fontSize: '0.85rem' }}>{when}</div>
+                                      </div>
+                                      <div style={{ marginTop: '0.25rem', color: '#333' }}>{r.comment}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
