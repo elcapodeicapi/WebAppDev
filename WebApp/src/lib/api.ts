@@ -2,6 +2,12 @@
 // In production you can set `VITE_API_BASE_URL` to the full API origin.
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
+function isJsonResponse(res: Response): boolean {
+  const contentType = res.headers.get('content-type')?.toLowerCase() ?? '';
+  // ASP.NET ProblemDetails uses application/problem+json
+  return contentType.includes('application/json') || contentType.includes('+json');
+}
+
 export type AuthResponse = {
   success: boolean;
   message: string;
@@ -36,10 +42,8 @@ export async function apiPost<TReq, TRes>(path: string, body: TReq): Promise<TRe
     throw new Error(err?.message || 'Network error while making request');
   }
 
-  // Check if response is JSON before parsing
-  const contentType = res.headers.get('content-type');
   let data: any;
-  if (contentType?.includes('application/json')) {
+  if (isJsonResponse(res)) {
     data = (await res.json()) as TRes;
   } else {
     const text = await res.text();
@@ -65,10 +69,8 @@ export async function apiGet<TRes>(path: string): Promise<TRes> {
     throw new Error(err?.message || 'Network error while making request');
   }
 
-  // Check if response is JSON before parsing
-  const contentType = res.headers.get('content-type');
   let data: any;
-  if (contentType?.includes('application/json')) {
+  if (isJsonResponse(res)) {
     data = (await res.json()) as TRes;
   } else {
     const text = await res.text();

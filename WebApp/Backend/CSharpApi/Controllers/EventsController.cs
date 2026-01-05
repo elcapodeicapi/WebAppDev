@@ -87,7 +87,10 @@ public class EventsController : ControllerBase
                 .ThenInclude(p => p.User)
             .Include(e => e.Reviews)
                 .ThenInclude(r => r.User)
-            .Where(e => e.EventParticipation.Any(p => p.UserId == userId))
+            // Only show events the user has accepted (e.g. Going/Host).
+            // Invitations are handled separately by GET api/events/invited.
+            .Where(e => e.EventParticipation.Any(p =>
+                p.UserId == userId && (p.Status == "Going" || p.Status == "Host")))
             .OrderBy(e => e.EventDate)
             .ToListAsync();
         return Ok(list.Select(MapEventToDto));
