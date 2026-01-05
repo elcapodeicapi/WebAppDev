@@ -93,8 +93,8 @@ public class AuthService
     {
         if (string.IsNullOrWhiteSpace(sid)) return (false, null, 0);
         var session = await _db.Sessions.Include(s => s.User).SingleOrDefaultAsync(s => s.Id == sid);
-        if (session is null || session.User is null) return (false, null);
-        if (session.Revoked || session.ExpiresAt <= DateTime.UtcNow) return (false, null);
+        if (session is null || session.User is null) return (false, null, 0);
+        if (session.Revoked || session.ExpiresAt <= DateTime.UtcNow) return (false, null, 0);
         
         session.LastActivityUtc = DateTime.UtcNow;
         var newExpiry = DateTime.UtcNow.AddHours(8);

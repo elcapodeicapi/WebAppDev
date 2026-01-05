@@ -327,7 +327,6 @@ export default function EventsPage() {
                   {(() => {
                     const safeIndex = Math.min(Math.max(currentIndex, 0), events.length - 1);
                     const event = events[safeIndex];
-                    const isCreator = currentUser?.id === event.createdBy;
 
                     const start = new Date(event.eventDate);
                     const end = new Date(start.getTime() + event.durationHours * 60 * 60 * 1000);

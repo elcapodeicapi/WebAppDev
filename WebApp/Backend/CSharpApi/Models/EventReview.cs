@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 
+namespace WebAppDev.AuthApi.Models;
+
 public class EventReview
 {
     public int Id { get; set; }
