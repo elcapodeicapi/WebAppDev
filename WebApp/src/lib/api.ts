@@ -36,7 +36,16 @@ export async function apiPost<TReq, TRes>(path: string, body: TReq): Promise<TRe
     throw new Error(err?.message || 'Network error while making request');
   }
 
-  const data = (await res.json()) as TRes;
+  // Check if response is JSON before parsing
+  const contentType = res.headers.get('content-type');
+  let data: any;
+  if (contentType?.includes('application/json')) {
+    data = (await res.json()) as TRes;
+  } else {
+    const text = await res.text();
+    throw new Error(`Server returned non-JSON response (${res.status}): ${text.substring(0, 200)}`);
+  }
+  
   if (!res.ok) {
     // try to surface server message
     const msg = (data as any)?.message || `Request failed with ${res.status}`;
@@ -56,7 +65,16 @@ export async function apiGet<TRes>(path: string): Promise<TRes> {
     throw new Error(err?.message || 'Network error while making request');
   }
 
-  const data = (await res.json()) as TRes;
+  // Check if response is JSON before parsing
+  const contentType = res.headers.get('content-type');
+  let data: any;
+  if (contentType?.includes('application/json')) {
+    data = (await res.json()) as TRes;
+  } else {
+    const text = await res.text();
+    throw new Error(`Server returned non-JSON response (${res.status}): ${text.substring(0, 200)}`);
+  }
+  
   if (!res.ok) {
     const msg = (data as any)?.message || `Request failed with ${res.status}`;
     throw new Error(msg);

@@ -77,10 +77,10 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<object>> GetSession()
     {
         var sid = GetSessionId() ?? string.Empty;
-        var (active, adminName) = await _auth.GetSessionAsync(sid);
+        var (active, adminName, userId) = await _auth.GetSessionAsync(sid);
         if (!active) return Ok(new { active = false });
-        if (!string.IsNullOrEmpty(adminName)) return Ok(new { active = true, adminName });
-        return Ok(new { active = true });
+        if (!string.IsNullOrEmpty(adminName)) return Ok(new { active = true, adminName, userId });
+        return Ok(new { active = true, userId });
     }
 
     [HttpPost("logout")]

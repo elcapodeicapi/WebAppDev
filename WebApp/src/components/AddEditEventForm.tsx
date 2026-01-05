@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 import { HOURS } from './constants';
 import { apiGet, apiPost, apiPut } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface EventResponse {
   id: number;
@@ -133,6 +134,7 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
   const [description, setDescription] = useState(event?.description || '');
   const [location, setLocation] = useState(event?.location || '');
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState('');
   const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
@@ -289,6 +291,17 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
     }
   };
 
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (event?.id && onDelete) {
+      setShowDeleteConfirm(false);
+      onDelete(event.id);
+    }
+  };
+
   return (
     <div className="event-form-container">
       <h2>{isAdding ? 'Add New Event' : 'Edit Event'}</h2>
@@ -345,6 +358,7 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
           <textarea value={description} onChange={e => setDescription(e.target.value)}></textarea>
         </div>
         <div className="form-group">
+<<<<<<< HEAD
           <label>Location:</label>
           <input
             type="text"
@@ -385,15 +399,41 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
               </div>
             )}
           </div>
+=======
+          <label>Location (Room):</label>
+          <select value={location} onChange={e => setLocation(e.target.value)}>
+            <option value="">Select a room (optional)</option>
+            <option value="A">Room A</option>
+            <option value="B">Room B</option>
+            <option value="C">Room C</option>
+            <option value="D">Room D</option>
+            <option value="E">Room E</option>
+            <option value="F">Room F</option>
+            <option value="G">Room G</option>
+            <option value="H">Room H</option>
+            <option value="I">Room I</option>
+            <option value="J">Room J</option>
+          </select>
+>>>>>>> LastAmmarBrnch
         </div>
         <div className="form-actions">
           <button type="submit" className="btn primary" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>
           <button type="button" className="btn" onClick={onCancel} disabled={loading}>Cancel</button>
           {!isAdding && event && onDelete && (
-            <button type="button" className="btn delete" onClick={() => onDelete(event.id)} disabled={loading}>Delete</button>
+            <button type="button" className="btn delete" onClick={handleDelete} disabled={loading}>Delete</button>
           )}
         </div>
       </form>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Event"
+        message="Are you sure you want to delete this event? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+        isLoading={loading}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import OfficeAttendancePage from './OfficeAttendancePage';
 import Dashboard from './Dashboard';
 import ProfilePage from './ProfilePage';
 import EventsPage from './EventsPage';
+import EventDetail from './EventDetail';
 import MyFriends from './MyFriends';
 import FriendDetailPage from './FriendDetail';
 import InvitationsPage from './Invitations';
@@ -66,6 +67,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <EventsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/event/:id"
+            element={
+              <ProtectedRoute>
+                <EventDetail />
               </ProtectedRoute>
             }
           />
