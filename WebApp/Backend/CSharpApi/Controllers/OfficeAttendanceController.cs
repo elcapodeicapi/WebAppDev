@@ -73,17 +73,47 @@ public class OfficeAttendanceController : ControllerBase
         var list = await _db.OfficeAttendances
             .Where(oa => oa.UserId == userId)
             .OrderByDescending(oa => oa.Date)
-            .Select(oa => new
-            {
-                oa.Id,
-                oa.Date,
-                oa.Status,
-                oa.CreatedAt,
-                oa.UpdatedAt
-            })
+            .ToListAsync();
+        
+        var result = list.Select(oa => new
+        {
+            oa.Id,
+            Date = oa.Date.ToString("yyyy-MM-dd"),
+            oa.Status,
+            CreatedAt = oa.CreatedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss") + "Z",
+            UpdatedAt = oa.UpdatedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss") + "Z"
+        });
+
+        return Ok(result);
+    }
+
+    // GET: api/officeattendance/today
+    [HttpGet("today")]
+    [SessionRequired]
+    public async Task<ActionResult<IEnumerable<object>>> Today()
+    {
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized(new { message = "Login required" });
+        
+        var today = DateTime.Today;
+
+        // Get all users with their attendance for today
+        var users = await _db.Users
+            .OrderBy(u => u.Name)
             .ToListAsync();
 
-        return Ok(list);
+        var attendances = await _db.OfficeAttendances
+            .Where(oa => oa.Date.Date == today)
+            .ToListAsync();
+
+        var result = users.Select(u => new
+        {
+            u.Id,
+            u.Name,
+            u.Username,
+            Status = attendances.FirstOrDefault(a => a.UserId == u.Id)?.Status ?? "Not Set"
+        });
+
+        return Ok(result);
     }
 }
 
