@@ -13,7 +13,6 @@ public class EventReview
     public int UserId { get; set; }
     public User? User { get; set; }
 
-    // Optional rating (e.g., 1-5)
     public int? Rating { get; set; }
 
     public string Comment { get; set; } = string.Empty;

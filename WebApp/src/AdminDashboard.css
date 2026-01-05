@@ -29,7 +29,6 @@
   border-left: 4px solid #c62828;
 }
 
-/* Stats */
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -57,7 +56,6 @@
   font-size: 0.95rem;
 }
 
-/* Tabs */
 .tabs {
   display: flex;
   gap: 0.5rem;
@@ -87,7 +85,6 @@
   font-weight: bold;
 }
 
-/* Tab Content */
 .tab-content {
   background: white;
   padding: 2rem;
@@ -102,7 +99,6 @@
   font-size: 1.5rem;
 }
 
-/* Event List */
 .event-list {
   display: flex;
   flex-direction: column;
@@ -133,7 +129,6 @@
   font-weight: bold;
 }
 
-/* Header with Button */
 .header-with-btn {
   display: flex;
   justify-content: space-between;
@@ -145,7 +140,6 @@
   margin: 0;
 }
 
-/* Form */
 .form-box {
   background: #f9f9f9;
   padding: 1.5rem;
@@ -197,7 +191,6 @@
   background: white;
 }
 
-/* Custom Dropdown */
 .custom-dropdown {
   position: relative;
   margin-bottom: 1rem;
@@ -284,7 +277,6 @@
   gap: 1rem;
 }
 
-/* Buttons */
 .btn-small {
   padding: 0.5rem 1.5rem;
   background: #333;
@@ -371,7 +363,6 @@
   background: #0b7dda;
 }
 
-/* Table */
 .simple-table {
   width: 100%;
   border-collapse: collapse;
@@ -401,7 +392,6 @@
   background: #f9f9f9;
 }
 
-/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -445,7 +435,6 @@
   padding: 0.75rem 1.5rem;
 }
 
-/* Attendees */
 .attendees-list {
   margin-bottom: 1.5rem;
 }
@@ -468,7 +457,6 @@
   color: #333;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .dashboard-content {
     padding: 1rem;

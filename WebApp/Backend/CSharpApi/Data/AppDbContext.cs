@@ -18,7 +18,6 @@ public class AppDbContext : DbContext
     public DbSet<EventParticipation> EventParticipations => Set<EventParticipation>();
     public DbSet<EventReview> EventReviews => Set<EventReview>();
 
-    // Removed OnConfiguring override to allow connection string from DI (Program.cs)
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,7 +68,6 @@ public class AppDbContext : DbContext
             .HasForeignKey(f => f.FriendId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Add RoomBookings relationships
         modelBuilder.Entity<RoomBookings>()
             .HasOne(rb => rb.Room)
             .WithMany(r => r.RoomBookings)

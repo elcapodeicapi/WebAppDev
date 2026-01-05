@@ -35,7 +35,6 @@ export default function OfficeAttendancePage() {
   const [todayAttendance, setTodayAttendance] = useState<TodayAttendanceRecord[]>([]);
   const [loadingToday, setLoadingToday] = useState(false);
 
-  // Fetch attendance history and today's attendance on component mount
   useEffect(() => {
     fetchAttendanceHistory();
     fetchTodayAttendance();
@@ -86,7 +85,6 @@ export default function OfficeAttendancePage() {
         status: form.status,
       });
       setSuccess('Attendance saved successfully.');
-      // Refresh history and today's attendance after successful submission
       fetchAttendanceHistory();
       fetchTodayAttendance();
     } catch (e: any) {
@@ -153,13 +151,11 @@ export default function OfficeAttendancePage() {
                     </thead>
                     <tbody>
                       {attendanceHistory.map(record => {
-                        // Handle both PascalCase and camelCase property names
                         const recordId = (record as any).Id ?? (record as any).id;
                         const recordDate = (record as any).Date ?? (record as any).date;
                         const recordStatus = (record as any).Status ?? (record as any).status ?? '';
                         const recordUpdatedAt = (record as any).UpdatedAt ?? (record as any).updatedAt;
                         
-                        // Parse date safely
                         let dateDisplay = 'Invalid Date';
                         if (recordDate) {
                           try {
@@ -172,7 +168,6 @@ export default function OfficeAttendancePage() {
                           }
                         }
                         
-                        // Parse updated timestamp safely
                         let updatedDisplay = 'Invalid Date';
                         if (recordUpdatedAt) {
                           try {

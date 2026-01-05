@@ -1,8 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-// namespace WebAppDev.AuthApi.Models;
 
-// enum Role {User, Admin }
 
 public class User
 {

@@ -1,4 +1,3 @@
-// src/components/Event.tsx
 import type { JSX } from 'react';
 import type { MeetingRoom } from '../MockedData/MockedData';
 

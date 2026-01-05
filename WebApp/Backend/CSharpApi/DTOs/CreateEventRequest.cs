@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace WebAppDev.AuthApi.DTOs;
 
@@ -15,6 +16,9 @@ public class CreateEventRequest
 
  
     public int DurationHours { get; set; } = 1;
+
+    [JsonPropertyName("roomId")]
+    public int? RoomId { get; set; }
 
     public string Host { get; set; } = string.Empty;
 

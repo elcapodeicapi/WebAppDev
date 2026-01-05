@@ -67,8 +67,6 @@ export default function MyFriends() {
 
   async function decline(requesterUsername: string) {
     setError(null);
-    // Backend does not currently implement a decline endpoint.
-    // Keeping this explicit avoids accidentally accepting a request.
     setError(`Decline not implemented server-side (pending from ${requesterUsername})`);
   }
 

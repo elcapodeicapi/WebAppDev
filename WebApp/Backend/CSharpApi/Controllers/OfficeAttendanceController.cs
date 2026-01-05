@@ -18,7 +18,6 @@ public class OfficeAttendanceController : ControllerBase
         _db = db;
     }
 
-    // POST: api/officeattendance
     [HttpPost]
     [SessionRequired]
     public async Task<ActionResult> Set([FromBody] SetOfficeAttendanceRequest req)
@@ -39,13 +38,11 @@ public class OfficeAttendanceController : ControllerBase
 
         if (existing != null)
         {
-            // Update existing record
             existing.Status = req.Status;
             existing.UpdatedAt = DateTime.UtcNow;
         }
         else
         {
-            // Create new record
             var attendance = new OfficeAttendance
             {
                 UserId = userId,
@@ -62,7 +59,6 @@ public class OfficeAttendanceController : ControllerBase
         return Ok(new { success = true });
     }
 
-    // GET: api/officeattendance/mine
     [HttpGet("mine")]
     [SessionRequired]
     public async Task<ActionResult<IEnumerable<object>>> Mine()
@@ -87,7 +83,6 @@ public class OfficeAttendanceController : ControllerBase
         return Ok(result);
     }
 
-    // GET: api/officeattendance/today
     [HttpGet("today")]
     [SessionRequired]
     public async Task<ActionResult<IEnumerable<object>>> Today()
@@ -96,7 +91,6 @@ public class OfficeAttendanceController : ControllerBase
         
         var today = DateTime.Today;
 
-        // Get all users with their attendance for today
         var users = await _db.Users
             .OrderBy(u => u.Name)
             .ToListAsync();

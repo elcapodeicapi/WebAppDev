@@ -24,8 +24,6 @@ namespace WebAppDev.AuthApi.Controllers
             public string? Status { get; set; } // optional override (Going/Declined)
         }
 
-        // POST api/attendance
-        // Accept/attend an invited event for the logged-in user
         [HttpPost]
         [SessionRequired]
         public async Task<IActionResult> Attend([FromBody] AttendRequest req)
@@ -33,7 +31,6 @@ namespace WebAppDev.AuthApi.Controllers
             var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized(new { error = "Login required" });
             var sessionUserId = (int)userIdObj;
 
-            // If body userId is missing or mismatched, force to session user
             if (req.UserId == 0 || req.UserId != sessionUserId)
             {
                 req.UserId = sessionUserId;
@@ -51,7 +48,6 @@ namespace WebAppDev.AuthApi.Controllers
 
             if (newStatus == "Going")
             {
-                // Availability check: prevent overlapping 'Going' events for the user
                 var start = ev.EventDate;
                 var end = ev.EventDate.AddHours(ev.DurationHours);
                 var hasOverlap = await _db.EventParticipations
@@ -66,7 +62,6 @@ namespace WebAppDev.AuthApi.Controllers
                 }
             }
 
-            // Must have an invitation to attend
             var participation = await _db.EventParticipations
                 .FirstOrDefaultAsync(p => p.EventId == req.EventId && p.UserId == req.UserId);
 
@@ -75,7 +70,6 @@ namespace WebAppDev.AuthApi.Controllers
                 return BadRequest(new { error = "No invitation found for this user and event." });
             }
 
-            // Allow changing state from Invited (and legacy Interested) to Going/Declined.
             if (participation.Status == newStatus)
             {
                 return Ok(ev);
@@ -87,7 +81,6 @@ namespace WebAppDev.AuthApi.Controllers
             return Ok(ev);
         }
 
-        // GET api/attendance/{eventId}/attendees
         [HttpGet("{eventId}/attendees")]
         public async Task<IActionResult> GetAttendees([FromRoute] int eventId)
         {
@@ -106,8 +99,6 @@ namespace WebAppDev.AuthApi.Controllers
             return Ok(list);
         }
 
-        // DELETE api/attendance/{eventId}
-        // Allows logged-in user to un-attend an event (set Declined or remove participation)
         [HttpDelete("{eventId}")]
         [SessionRequired]
         public async Task<IActionResult> Unattend([FromRoute] int eventId)
@@ -121,7 +112,6 @@ namespace WebAppDev.AuthApi.Controllers
             if (participation == null)
                 return NotFound(new { error = "No attendance record found" });
 
-            // Business rule: keep invitation history by updating status to Declined
             participation.Status = "Declined";
             await _db.SaveChangesAsync();
 

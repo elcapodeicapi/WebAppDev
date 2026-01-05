@@ -35,7 +35,6 @@ export default function RoomBookingPage() {
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
 
-  // Fetch rooms when component loads
   useEffect(() => {
     fetchRooms();
   }, []);
@@ -46,12 +45,10 @@ export default function RoomBookingPage() {
     try {
       console.log('Fetching rooms...');
       
-      // Get basic rooms list
       const data = await apiGet('/api/rooms');
       console.log('Rooms data:', data);
       
       if (Array.isArray(data)) {
-        // Normalize room data
         const normalizedRooms = data.map((room: any) => ({
           id: room.Id || room.id || room.RoomId,
           RoomName: room.RoomName || room.roomName || room.Name || `Room ${room.Id || room.id || room.RoomId}`
@@ -76,13 +73,11 @@ export default function RoomBookingPage() {
     setError(null);
     setSuccess(null);
 
-    // Check if user is authenticated
     if (!user) {
       setError('You must be logged in to book a room');
       return;
     }
 
-    // Validation
     if (!form.roomId || !form.date || !form.startTime || !form.durationHours || !form.numberOfPeople) {
       setError('Please fill in all required fields');
       return;
@@ -96,7 +91,6 @@ export default function RoomBookingPage() {
 
     setSubmitting(true);
     try {
-      // Create booking payload
       const bookingPayload = {
         roomId: parseInt(form.roomId),
         date: form.date,
@@ -110,7 +104,6 @@ export default function RoomBookingPage() {
       console.log('Sending booking request:', bookingPayload);
       console.log('User authentication check:', user);
 
-      // Make the API call with better error handling
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/roombookings/book`, {
         method: 'POST',
         headers: {
@@ -123,11 +116,9 @@ export default function RoomBookingPage() {
       console.log('Response status:', response.status);
       console.log('Response headers:', response.headers);
 
-      // Check if response is JSON
       const contentType = response.headers.get('content-type');
       console.log('Content type:', contentType);
 
-      // Read the body ONCE (Response streams can only be consumed once)
       const responseText = await response.text();
       const isJson = !!contentType && contentType.includes('application/json');
       const parsed = isJson && responseText ? (() => {
@@ -137,33 +128,38 @@ export default function RoomBookingPage() {
       if (!response.ok) {
         console.log('Error response text:', responseText);
 
-        // If it's HTML, it's likely a server error page
         if (contentType && contentType.includes('text/html')) {
           throw new Error('Server returned an HTML error page. Check backend logs for details.');
         }
 
-        // Prefer server JSON message when available
         const msg = (parsed as any)?.message || (parsed as any)?.error || responseText || `Booking failed with ${response.status}`;
         throw new Error(msg);
       }
 
-      // Parse successful response
       const data = (parsed ?? {}) as any;
       console.log('Booking successful! Response:', data);
       
-      // Show detailed success message
       if (data.booking) {
-        setSuccess(`🎉 Room booked successfully! 
-📍 ${data.booking.RoomName}
-📅 ${data.booking.BookingDate}
-⏰ ${data.booking.StartTime} - ${data.booking.EndTime}
-📝 ${data.booking.Purpose || 'No purpose'}
-Booking ID: ${data.bookingId}`);
+          const b = data.booking as any;
+          const roomName = b.RoomName ?? b.roomName ?? 'Unknown room';
+          const bookingDate = b.BookingDate ?? b.bookingDate ?? 'Unknown date';
+          const startTime = b.StartTime ?? b.startTime ?? 'Unknown';
+          const endTime = b.EndTime ?? b.endTime ?? 'Unknown';
+          const purpose = b.Purpose ?? b.purpose ?? '';
+          const bookingId = data.bookingId ?? b.Id ?? b.id ?? '';
+
+          setSuccess(
+            `Room booked successfully!\n` +
+            `Room: ${roomName}\n` +
+            `Date: ${bookingDate}\n` +
+            `Time: ${startTime} - ${endTime}\n` +
+            `Purpose: ${purpose || 'No purpose'}\n` +
+            `Booking ID: ${bookingId}`
+          );
       } else {
-        setSuccess('Room booked successfully! 🎉');
+        setSuccess('Room booked successfully!');
       }
       
-      // Reset form
       setForm({
         roomId: '',
         date: '',
@@ -174,7 +170,6 @@ Booking ID: ${data.bookingId}`);
       });
       setSelectedRoom(null);
       
-      // Refresh profile bookings by triggering a re-fetch
       console.log('Booking successful - profile should show this booking now');
       
     } catch (e: any) {
@@ -203,7 +198,7 @@ Booking ID: ${data.bookingId}`);
       <Navbar />
       <div className="booking-container">
         <div className="booking-header">
-          <h1>🏢 Room Booking</h1>
+          <h1>Room Booking</h1>
           <p>Book a room for your meeting or event</p>
         </div>
         
@@ -212,7 +207,7 @@ Booking ID: ${data.bookingId}`);
 
         {/* Simple Room Selection */}
         <div className="room-selection-section">
-          <h2>📍 Select a Room</h2>
+          <h2>Select a Room</h2>
           {loadingRooms ? (
             <div className="loading">Loading rooms...</div>
           ) : rooms.length > 0 ? (
@@ -227,7 +222,7 @@ Booking ID: ${data.bookingId}`);
                     <h3>{room.RoomName}</h3>
                   </div>
                   <div className="room-select-indicator">
-                    {selectedRoom?.id === room.id ? '✅ Selected' : '👆 Click to select'}
+                    {selectedRoom?.id === room.id ? 'Selected' : 'Click to select'}
                   </div>
                 </div>
               ))}
@@ -240,7 +235,7 @@ Booking ID: ${data.bookingId}`);
         {/* Booking Form */}
         {selectedRoom && (
           <div className="booking-form-section">
-            <h2>📅 Booking Details</h2>
+            <h2>Booking Details</h2>
             <div className="selected-room-info">
               <p><strong>Selected Room:</strong> {selectedRoom.RoomName}</p>
             </div>
@@ -248,7 +243,7 @@ Booking ID: ${data.bookingId}`);
             <form onSubmit={handleSubmit} className="booking-form">
               <div className="form-row">
                 <div className="form-group">
-                  <label>📅 Date *</label>
+                  <label>Date *</label>
                   <input
                     type="date"
                     value={form.date}
@@ -259,7 +254,7 @@ Booking ID: ${data.bookingId}`);
                 </div>
 
                 <div className="form-group">
-                  <label>⏰ Start Time *</label>
+                  <label>Start Time *</label>
                   <select
                     value={form.startTime}
                     onChange={e => setForm({ ...form, startTime: e.target.value })}
@@ -282,7 +277,7 @@ Booking ID: ${data.bookingId}`);
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>⏱️ Duration *</label>
+                  <label>Duration *</label>
                   <select
                     value={form.durationHours}
                     onChange={e => setForm({ ...form, durationHours: e.target.value })}
@@ -296,7 +291,7 @@ Booking ID: ${data.bookingId}`);
                 </div>
 
                 <div className="form-group">
-                  <label>👥 Number of People *</label>
+                  <label>Number of People *</label>
                   <input
                     type="number"
                     min="1"
@@ -310,7 +305,7 @@ Booking ID: ${data.bookingId}`);
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>📝 Purpose</label>
+                  <label>Purpose</label>
                   <input
                     type="text"
                     value={form.purpose}
@@ -326,7 +321,7 @@ Booking ID: ${data.bookingId}`);
                   className="btn-primary"
                   disabled={submitting}
                 >
-                  {submitting ? '⏳ Booking...' : '🎯 Book Room'}
+                  {submitting ? 'Booking...' : 'Book Room'}
                 </button>
                 <button
                   type="button"
@@ -343,7 +338,7 @@ Booking ID: ${data.bookingId}`);
                     });
                   }}
                 >
-                  ❌ Cancel
+                  Cancel
                 </button>
               </div>
             </form>

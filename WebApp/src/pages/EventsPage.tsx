@@ -118,7 +118,6 @@ export default function EventsPage() {
     }
   }, [events, selectedDate, viewYear, viewMonth]);
 
-  // keep selectedDate in sync with the currently selected event
   useEffect(() => {
     if (!events || events.length === 0) return;
     const idx = Math.min(Math.max(currentIndex, 0), events.length - 1);
@@ -130,7 +129,6 @@ export default function EventsPage() {
     }
   }, [currentIndex, events, selectedDate]);
 
-  // Keep review form pre-filled for the selected event
   useEffect(() => {
     setReviewMsg(null);
     if (!user || !events || events.length === 0) {
@@ -167,7 +165,6 @@ export default function EventsPage() {
       if (!isNaN(d.getTime())) {
         setViewYear(d.getFullYear());
         setViewMonth(d.getMonth());
-        // jump to the first event on that date, if any
         const key = d.toISOString().slice(0, 10);
         const idx = events.findIndex(e => new Date(e.eventDate).toISOString().slice(0, 10) === key);
         if (idx >= 0) {

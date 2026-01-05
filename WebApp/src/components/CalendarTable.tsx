@@ -1,4 +1,3 @@
-// src/components/CalendarTable.tsx
 import type { JSX } from 'react';
 import type { MeetingRoom } from '../MockedData/MockedData';
 import { Event } from './Event';

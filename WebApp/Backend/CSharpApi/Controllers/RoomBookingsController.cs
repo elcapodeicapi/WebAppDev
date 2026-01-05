@@ -4,6 +4,7 @@ using WebAppDev.AuthApi.Data;
 using WebAppDev.AuthApi.DTOs;
 using WebAppDev.AuthApi.Filters;
 using WebAppDev.AuthApi.Models;
+using WebAppDev.AuthApi.Services;
 
 namespace WebAppDev.AuthApi.Controllers;
 
@@ -18,7 +19,6 @@ public class RoomBookingsController : ControllerBase
         _db = db;
     }
 
-    // POST: api/roombookings/book
     [HttpPost("book")]
     [SessionRequired]
     public async Task<ActionResult> Book([FromBody] CreateRoomBookingRequest req)
@@ -46,27 +46,31 @@ public class RoomBookingsController : ControllerBase
         var startTimeOnly = TimeOnly.FromTimeSpan(startDateTime.TimeOfDay);
         var endTimeOnly = startTimeOnly.AddHours(req.DurationHours);
 
-        var hasConflict = await _db.RoomBookings.AnyAsync(rb =>
-            rb.RoomId == req.RoomId &&
-            rb.BookingDate.Date == datePart.Date &&
-            rb.StartTime < endTimeOnly &&
-            rb.EndTime > startTimeOnly);
-
-        if (hasConflict)
+        var roomLock = RoomBookingLock.ForRoomDate(req.RoomId, datePart.Date);
+        await roomLock.WaitAsync();
+        try
         {
-            return Conflict(new { message = "Room is already booked for that time range." });
-        }
+            var hasConflict = await _db.RoomBookings.AnyAsync(rb =>
+                rb.RoomId == req.RoomId &&
+                rb.BookingDate.Date == datePart.Date &&
+                rb.StartTime < endTimeOnly &&
+                rb.EndTime > startTimeOnly);
 
-        var booking = new RoomBookings
-        {
-            RoomId = req.RoomId,
-            UserId = userId,
-            BookingDate = datePart.Date,
-            StartTime = startTimeOnly,
-            EndTime = endTimeOnly,
-            Purpose = req.Purpose,
-            NumberOfPeople = req.NumberOfPeople
-        };
+            if (hasConflict)
+            {
+                return Conflict(new { message = "Room is already booked for that time range." });
+            }
+
+            var booking = new RoomBookings
+            {
+                RoomId = req.RoomId,
+                UserId = userId,
+                BookingDate = datePart.Date,
+                StartTime = startTimeOnly,
+                EndTime = endTimeOnly,
+                Purpose = req.Purpose,
+                NumberOfPeople = req.NumberOfPeople
+            };
 
         Console.WriteLine($"=== CREATING BOOKING ===");
         Console.WriteLine($"User ID: {userId}");
@@ -76,49 +80,52 @@ public class RoomBookingsController : ControllerBase
         Console.WriteLine($"Purpose: {req.Purpose}");
         Console.WriteLine($"========================");
 
-        _db.RoomBookings.Add(booking);
-        var saveResult = await _db.SaveChangesAsync();
+            _db.RoomBookings.Add(booking);
+            var saveResult = await _db.SaveChangesAsync();
 
         Console.WriteLine($"=== BOOKING SAVED ===");
         Console.WriteLine($"SaveAsync result: {saveResult} records affected");
-        Console.WriteLine($"Booking ID: {booking.Id}");
+            Console.WriteLine($"Booking ID: {booking.Id}");
         Console.WriteLine($"====================");
 
-        // Verify the booking was actually saved by querying it back
-        var savedBooking = await _db.RoomBookings
-            .Include(rb => rb.Room)
-            .FirstOrDefaultAsync(rb => rb.Id == booking.Id);
+            var savedBooking = await _db.RoomBookings
+                .Include(rb => rb.Room)
+                .FirstOrDefaultAsync(rb => rb.Id == booking.Id);
 
-        if (savedBooking != null)
-        {
-            Console.WriteLine($"=== BOOKING VERIFIED ===");
-            Console.WriteLine($"Found saved booking with ID: {savedBooking.Id}");
-            Console.WriteLine($"Room: {savedBooking.Room?.RoomName}");
-            Console.WriteLine($"========================");
-            
-            return Ok(new { 
-                success = true, 
-                bookingId = booking.Id,
-                message = "Room booked successfully!",
-                booking = new {
-                    Id = savedBooking.Id,
-                    RoomName = savedBooking.Room?.RoomName,
-                    BookingDate = savedBooking.BookingDate.ToString("yyyy-MM-dd"),
-                    StartTime = savedBooking.StartTime.ToString("h:mm tt"),
-                    EndTime = savedBooking.EndTime.ToString("h:mm tt"),
-                    Purpose = savedBooking.Purpose,
-                    NumberOfPeople = savedBooking.NumberOfPeople
-                }
-            });
-        }
-        else
-        {
+            if (savedBooking != null)
+            {
+                Console.WriteLine($"=== BOOKING VERIFIED ===");
+                Console.WriteLine($"Found saved booking with ID: {savedBooking.Id}");
+                Console.WriteLine($"Room: {savedBooking.Room?.RoomName}");
+                Console.WriteLine($"========================");
+
+                return Ok(new
+                {
+                    success = true,
+                    bookingId = booking.Id,
+                    message = "Room booked successfully!",
+                    booking = new
+                    {
+                        Id = savedBooking.Id,
+                        RoomName = savedBooking.Room?.RoomName,
+                        BookingDate = savedBooking.BookingDate.ToString("yyyy-MM-dd"),
+                        StartTime = savedBooking.StartTime.ToString("h:mm tt"),
+                        EndTime = savedBooking.EndTime.ToString("h:mm tt"),
+                        Purpose = savedBooking.Purpose,
+                        NumberOfPeople = savedBooking.NumberOfPeople
+                    }
+                });
+            }
+
             Console.WriteLine($"=== ERROR: BOOKING NOT FOUND AFTER SAVE ===");
             return StatusCode(500, new { message = "Failed to save booking to database" });
         }
+        finally
+        {
+            roomLock.Release();
+        }
     }
 
-    // GET: api/roombookings/mine
     [HttpGet("mine")]
     [SessionRequired]
     public async Task<ActionResult<IEnumerable<object>>> GetMyBookings()
@@ -129,7 +136,6 @@ public class RoomBookingsController : ControllerBase
         Console.WriteLine($"=== PROFILE: FETCHING BOOKINGS FOR USER {userId} ===");
         Console.WriteLine($"Today's date: {DateTime.Today:yyyy-MM-dd}");
         
-        // First, let's check what's actually in the RoomBookings table for this user
         var allUserBookings = await _db.RoomBookings
             .Where(rb => rb.UserId == userId)
             .ToListAsync();
@@ -150,7 +156,6 @@ public class RoomBookingsController : ControllerBase
 
         Console.WriteLine($"Filtered bookings (today and future): {bookings.Count}");
         
-        // Debug: Log what we found
         Console.WriteLine($"=== DEBUG: Found {bookings.Count} bookings for user {userId} ===");
         foreach (var booking in bookings)
         {
@@ -163,7 +168,6 @@ public class RoomBookingsController : ControllerBase
             {
                 Console.WriteLine($"  Room relationship is NULL - checking RoomId: {booking.RoomId}");
                 
-                // Try to get the room directly
                 var roomDirect = await _db.Rooms.FindAsync(booking.RoomId);
                 if (roomDirect != null)
                 {
@@ -192,7 +196,6 @@ public class RoomBookingsController : ControllerBase
         return Ok(result);
     }
 
-    // GET: api/roombookings/available?date=yyyy-MM-dd
     [HttpGet("available")]
     [SessionRequired]
     public async Task<ActionResult<IEnumerable<object>>> GetAvailableRooms([FromQuery] string date)
@@ -215,18 +218,29 @@ public class RoomBookingsController : ControllerBase
             var roomBookings = bookings.Where(b => b.RoomId == room.Id).ToList();
             var timeSlots = new List<object>();
 
-            // Generate hourly slots from 8 AM to 6 PM
             for (int hour = 8; hour <= 18; hour++)
             {
                 var slotStart = new TimeOnly(hour, 0);
                 var slotEnd = slotStart.AddHours(1);
                 var isBooked = roomBookings.Any(b => b.StartTime < slotEnd && b.EndTime > slotStart);
 
+                var conflict = isBooked
+                    ? roomBookings.FirstOrDefault(b => b.StartTime < slotEnd && b.EndTime > slotStart)
+                    : null;
+
                 timeSlots.Add(new
                 {
                     Time = $"{slotStart:hh:mm} - {slotEnd:hh:mm}",
                     Available = !isBooked,
-                    Booking = isBooked ? roomBookings.FirstOrDefault(b => b.StartTime < slotEnd && b.EndTime > slotStart) : null
+                    Booking = conflict == null ? null : new
+                    {
+                        Id = conflict.Id,
+                        UserId = conflict.UserId,
+                        StartTime = conflict.StartTime.ToString("h:mm tt"),
+                        EndTime = conflict.EndTime.ToString("h:mm tt"),
+                        Purpose = conflict.Purpose,
+                        NumberOfPeople = conflict.NumberOfPeople,
+                    }
                 });
             }
 
@@ -237,6 +251,50 @@ public class RoomBookingsController : ControllerBase
                 TimeSlots = timeSlots
             };
         }).ToList();
+
+        return Ok(availableRooms);
+    }
+
+    [HttpGet("available-rooms")]
+    [SessionRequired]
+    public async Task<ActionResult<IEnumerable<object>>> GetAvailableRoomList(
+        [FromQuery] string date,
+        [FromQuery] string? startTime,
+        [FromQuery] int? durationHours)
+    {
+        if (!DateTime.TryParseExact(date, new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" },
+            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dateOnly))
+        {
+            return BadRequest(new { message = "Date must be in dd/MM/yyyy or yyyy-MM-dd format." });
+        }
+
+        var roomsQuery = _db.Rooms
+            .OrderBy(r => r.RoomName)
+            .Select(r => new { r.Id, r.RoomName });
+
+        if (string.IsNullOrWhiteSpace(startTime) || durationHours == null || durationHours <= 0)
+        {
+            var allRooms = await roomsQuery.ToListAsync();
+            return Ok(allRooms);
+        }
+
+        if (!DateTime.TryParse(startTime, out var startDateTime))
+        {
+            return BadRequest(new { message = "StartTime could not be parsed (e.g. '9 AM')." });
+        }
+
+        var startTimeOnly = TimeOnly.FromTimeSpan(startDateTime.TimeOfDay);
+        var endTimeOnly = startTimeOnly.AddHours(durationHours.Value);
+
+        var bookedRoomIds = await _db.RoomBookings
+            .Where(rb => rb.BookingDate.Date == dateOnly.Date && rb.StartTime < endTimeOnly && rb.EndTime > startTimeOnly)
+            .Select(rb => rb.RoomId)
+            .Distinct()
+            .ToListAsync();
+
+        var availableRooms = await roomsQuery
+            .Where(r => !bookedRoomIds.Contains(r.Id))
+            .ToListAsync();
 
         return Ok(availableRooms);
     }

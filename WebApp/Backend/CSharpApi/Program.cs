@@ -10,7 +10,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
-// OpenAPI/Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -36,14 +35,12 @@ builder.Services.AddCors(options =>
     });
 });
 
-// EF Core with SQLite
 var connectionString = builder.Configuration.GetConnectionString("Default") ?? "Data Source=WebAPI.db";
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddScoped<AuthService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -52,30 +49,23 @@ app.UseSwaggerUI(c =>
 });
 app.UseCors(ClientCorsPolicy);
 
-// Session cookie middleware
 app.UseMiddleware<SessionMiddleware>();
 
 app.MapControllers();
 
-// Ensure DB exists and seed mock data
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     if (app.Environment.IsDevelopment())
     {
-        // In development, DO NOT drop the DB automatically.
-        // Optionally allow a forced reset with an environment variable DB_RESET=true
         var reset = Environment.GetEnvironmentVariable("DB_RESET");
         var shouldReset = string.Equals(reset, "true", StringComparison.OrdinalIgnoreCase) || reset == "1";
         if (shouldReset)
         {
             await db.Database.EnsureDeletedAsync();
         }
-        // Ensure database exists according to current model (no migrations needed for dev)
         await db.Database.EnsureCreatedAsync();
 
-        // If the database already existed with an older schema, EnsureCreated will not update it.
-        // Validate critical columns and recreate if mismatched.
         static bool HasColumn(System.Data.Common.DbConnection connection, string table, string column)
         {
             using var cmd = connection.CreateCommand();
@@ -116,7 +106,6 @@ using (var scope = app.Services.CreateScope())
     }
     await DbInitializer.SeedAsync(db);
     
-    // Ensure OfficeAttendances table exists for development
     if (app.Environment.IsDevelopment())
     {
         var connection = db.Database.GetDbConnection();

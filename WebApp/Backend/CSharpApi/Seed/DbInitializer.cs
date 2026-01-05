@@ -8,7 +8,6 @@ public static class DbInitializer
 {
     public static async Task SeedAsync(AppDbContext db)
     {
-        // Seed independently so we don't re-insert users when only rooms are missing (or vice versa).
         if (!await db.Users.AnyAsync())
         {
             var users = new List<(string name, string username, string email, string password, string role)>

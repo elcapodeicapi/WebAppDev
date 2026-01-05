@@ -14,7 +14,6 @@ export default function LoginForm() {
     setLocalMessage(null);
     try {
   const u = await login(username, password);
-  // redirect by role based on returned user to avoid timing issues
   if (u.role === 'Admin') navigate('/dashboard');
   else navigate('/home');
     } catch (e: any) {

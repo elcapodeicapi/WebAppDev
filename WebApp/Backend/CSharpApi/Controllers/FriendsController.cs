@@ -84,7 +84,6 @@ namespace WebAppDev.AuthApi.Controllers
                 .Distinct()
                 .ToListAsync();
 
-            // Check if same booking: any booking today with same room and overlapping time
             var today = DateTime.Today;
             var myBookings = await _db.RoomBookings
                 .Where(rb => rb.UserId == userId && rb.BookingDate == today)
@@ -96,7 +95,6 @@ namespace WebAppDev.AuthApi.Controllers
                 .Select(rb => new { rb.UserId, rb.RoomId, rb.StartTime, rb.EndTime })
                 .ToListAsync();
 
-            // Today's events overlap determination
             var myTodayEvents = await _db.Events
                 .Where(e => e.EventParticipation.Any(p => p.UserId == userId) && e.EventDate.Date == today)
                 .Select(e => new { e.EventDate, EndTime = e.EventDate.AddHours(e.DurationHours) })
@@ -119,7 +117,6 @@ namespace WebAppDev.AuthApi.Controllers
                     {
                         if (mb.RoomId == fb.RoomId)
                         {
-                            // simple overlap check
                             if (mb.StartTime < fb.EndTime && fb.StartTime < mb.EndTime) { same = true; break; }
                         }
                     }
@@ -180,7 +177,6 @@ namespace WebAppDev.AuthApi.Controllers
         {
             var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
             var userId = (int)userIdObj;
-            // ensure friendship exists and accepted
             var isFriend = await _db.Friendships.AnyAsync(f => (f.UserId == userId && f.FriendId == id || f.UserId == id && f.FriendId == userId) && f.Status == "Accepted");
             if (!isFriend) return NotFound(new { success = false, message = "Not friends" });
 
@@ -207,7 +203,6 @@ namespace WebAppDev.AuthApi.Controllers
                 .Select(rb => new { rb.RoomId, rb.BookingDate, StartTime = rb.StartTime.ToString(), EndTime = rb.EndTime.ToString() })
                 .ToListAsync();
 
-            // Event overlap and upcoming events
             var myTodayEvents2 = await _db.Events
                 .Where(e => e.EventParticipation.Any(p => p.UserId == userId) && e.EventDate.Date == today)
                 .Select(e => new { e.EventDate, EndTime = e.EventDate.AddHours(e.DurationHours) })

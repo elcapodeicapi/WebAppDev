@@ -29,15 +29,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
 
-  // Rehydrate from localStorage
   useEffect(() => {
     async function init() {
       try {
         const raw = localStorage.getItem('auth');
         if (raw) {
           const parsed = JSON.parse(raw) as { user: AuthUser; sessionId: string };
-          // validate with backend
-          // Prefer cookie-based session check; this endpoint will read cookie
           try {
             const session = await fetch(`${API_BASE_URL}/api/auth/session`, { credentials: 'include' });
             if (session.ok) {
@@ -51,7 +48,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               localStorage.removeItem('auth');
             }
           } catch {
-            // network error; fall back to local user as best effort
             if (parsed.user) setUser(parsed.user);
           }
         }
@@ -78,7 +74,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const u: AuthUser = { id: res.userId, email: res.email, fullName: res.fullName, username: res.username, role };
       setUser(u);
       setSessionId(sid);
-      // Store only user locally; session token is HttpOnly cookie
       localStorage.setItem('auth', JSON.stringify({ user: u }));
       setMessage(res.message || 'Login successful');
       return u;
@@ -96,7 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function logout() {
     setLoading(true);
     try {
-      // Body is optional; server prefers cookie. Send empty object.
       await apiPost('/api/auth/logout', {});
     } finally {
       setUser(null);

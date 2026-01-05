@@ -1,4 +1,3 @@
-// src/components/AddEditEventForm.tsx
 import { useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
 import { HOURS } from './constants';
@@ -18,7 +17,6 @@ interface EventResponse {
   createdBy: number;
 }
 
-// Support both EventResponse and local MeetingRoom format
 interface MeetingRoom {
   id: string;
   title: string;
@@ -45,41 +43,28 @@ interface AddEditEventFormProps {
 export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }: AddEditEventFormProps): JSX.Element {
   const { user } = useAuth();
 
-  type AvailableRoom = {
-    RoomId: number;
-    RoomName: string;
-    Capacity: number;
-    Location: string;
-    TimeSlots: Array<{ Time: string; Available: boolean }>;
-  };
+  type RoomLite = { id: number; roomName: string };
 
-  // Helper to extract date from either EventResponse or MeetingRoom
   const getDateValue = () => {
     if (!event) return '';
     if ('eventDate' in event) {
-      // EventResponse format
       return new Date(event.eventDate).toISOString().split('T')[0];
     }
-    // MeetingRoom format
     return (event as MeetingRoom).date;
   };
 
-  // Helper to extract startTime from either EventResponse or MeetingRoom
   const getStartTimeValue = () => {
     if (!event) return HOURS[0];
     if ('eventDate' in event) {
-      // EventResponse format
       const dt = new Date(event.eventDate);
       const hours = dt.getHours();
       const isAM = hours < 12;
       const displayHour = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
       return `${displayHour} ${isAM ? 'AM' : 'PM'}`;
     }
-    // MeetingRoom format
     return (event as MeetingRoom).startTime;
   };
 
-  // Helper to get duration
   const getDurationValue = () => {
     if (!event) return 1;
     if ('durationHours' in event) {
@@ -88,7 +73,6 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
     return (event as MeetingRoom).duration;
   };
 
-  // Helper to get attendees as string
   const getAttendeesValue = () => {
     if (!event) return '';
     if ('attendees' in event) {
@@ -103,9 +87,7 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
   const [date, setDate] = useState(getDateValue());
   const [startTime, setStartTime] = useState(getStartTimeValue());
   const [duration, setDuration] = useState(getDurationValue());
-  // Host is always the logged-in user (no input field)
   const host = user?.username || user?.fullName || '';
-  // Fetch users for attendee selection
   type UserLite = { id: number; username: string; fullName: string };
   const [users, setUsers] = useState<UserLite[]>([]);
   const initialAttendees = useMemo<string[]>(() => {
@@ -119,9 +101,9 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState('');
-  const [, setAvailableRooms] = useState<AvailableRoom[]>([]);
-  const [, setLoadingRooms] = useState(false);
-  const [, setBookingError] = useState('');
+  const [availableRooms, setAvailableRooms] = useState<RoomLite[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [bookingError, setBookingError] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -130,42 +112,72 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         const list = await apiGet<UserLite[]>('/api/users');
         setUsers(list);
       } catch {
-        // ignore silently; UI will show no users
       }
     }
     loadUsers();
   }, []);
 
   useEffect(() => {
-    if (date) {
-      fetchAvailableRooms();
-    } else {
-      setAvailableRooms([]);
-      setSelectedRoomId(null);
-    }
-  }, [date]);
+    const myUsername = user?.username;
+    if (!myUsername) return;
+    setSelectedAttendees(prev => prev.filter(u => u !== myUsername));
+  }, [user?.username]);
 
-  async function fetchAvailableRooms() {
-    setLoadingRooms(true);
-    setBookingError('');
-    try {
-      const data = await apiGet(`/api/roombookings/available?date=${date}`);
-      setAvailableRooms((data as any[]) as AvailableRoom[]);
-    } catch (e: any) {
-      console.warn('Room availability fetch failed:', e);
+  useEffect(() => {
+    async function loadRooms() {
+      if (!date) {
+        setAvailableRooms([]);
+        setSelectedRoomId(null);
+        setLocation('');
+        return;
+      }
+
+      setLoadingRooms(true);
       setBookingError('');
-      setAvailableRooms([]);
-    } finally {
-      setLoadingRooms(false);
+      try {
+        const qs = new URLSearchParams({
+          date,
+          startTime,
+          durationHours: String(duration)
+        });
+        const list = await apiGet<RoomLite[]>(`/api/roombookings/available-rooms?${qs.toString()}`);
+        setAvailableRooms(list);
+
+        if (selectedRoomId && !list.some(r => r.id === selectedRoomId)) {
+          setSelectedRoomId(null);
+          setLocation('');
+        }
+      } catch (e: any) {
+        console.warn('Room availability fetch failed:', e);
+        setBookingError('Failed to load rooms');
+        setAvailableRooms([]);
+      } finally {
+        setLoadingRooms(false);
+      }
     }
-  }
+
+    loadRooms();
+  }, [date, startTime, duration, selectedRoomId]);
+
+  useEffect(() => {
+    if (!location) return;
+    if (selectedRoomId) return;
+    if (availableRooms.length === 0) return;
+
+    const match = availableRooms.find(r => r.roomName === location);
+    if (match) {
+      setSelectedRoomId(match.id);
+      return;
+    }
+
+    setLocation('');
+  }, [availableRooms, location, selectedRoomId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Debug: Log all form values
     console.log('Form submission debug:', {
       title,
       date,
@@ -178,7 +190,6 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
       attendeesString: selectedAttendees.join(',')
     });
 
-    // Validation check
     if (!title || !date || !startTime || !duration || !host) {
       console.error('Validation failed - missing required fields:', {
         title: !!title,
@@ -192,8 +203,16 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
       return;
     }
 
+    if (location) {
+      const validRoom = availableRooms.find(r => r.roomName === location || r.id === selectedRoomId);
+      if (!validRoom) {
+        setError('Please select an available room (or leave it empty).');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
-      // First create the event
       const payload = {
         title,
         date,
@@ -202,56 +221,21 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         host,
         attendees: selectedAttendees.join(','),
         description,
-        location
+        location,
+        roomId: selectedRoomId
       };
 
       console.log('Sending event payload:', payload);
 
       if (event?.id) {
-        // Edit existing event - use PUT
         await apiPut(`/api/events/${event.id}`, payload);
       } else {
-        // Create new event - use POST
         await apiPost('/api/events', payload);
       }
       
       console.log('Event created successfully');
 
-      // If creating a new event with a room, book the room
-      if (!event?.id && location && date && startTime && duration) {
-        try {
-          // Prefer the selected room from the availability list.
-          // (The seeded rooms use names like "A", so extracting digits from the location often fails.)
-          const roomIdFromSelection = selectedRoomId;
-
-          // Backwards-compatible fallback if someone typed "Room 1".
-          const roomIdMatch = roomIdFromSelection ? null : location.match(/\d+/);
-          const roomId = roomIdFromSelection ?? (roomIdMatch ? parseInt(roomIdMatch[0]) : null);
-          
-          console.log('Attempting room booking:', { location, roomId });
-          
-          if (roomId) {
-            await apiPost('/api/roombookings/book', {
-              roomId,
-              date,
-              startTime,
-              durationHours: duration,
-              numberOfPeople: selectedAttendees.length + 1, // Include host
-              purpose: `Event: ${title}`
-            });
-            console.log('Room booking successful');
-          } else {
-            console.warn('Could not extract room ID from location:', location);
-            setError('Event created, but room booking failed - no room selected');
-          }
-        } catch (bookingErr: any) {
-          // If room booking fails, show warning but don't fail the event creation
-          console.warn('Room booking failed:', bookingErr.message);
-          setError(`Event created successfully, but room booking failed: ${bookingErr.message}`);
-        }
-      }
       
-      // Notify parent to refresh events
       onSave();
     } catch (err: any) {
       console.error('Event creation failed:', err);
@@ -303,10 +287,10 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         <div className="form-group">
           <label>Attendees:</label>
           <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #ddd', padding: 8, borderRadius: 4 }}>
-            {users.length === 0 ? (
-              <div style={{ color: '#777' }}>No users available</div>
+            {users.filter(u => u.id !== user?.id).length === 0 ? (
+              <div style={{ color: '#777' }}>No other users available</div>
             ) : (
-              users.map(u => (
+              users.filter(u => u.id !== user?.id).map(u => (
                 <label key={u.id} style={{ display: 'block', marginBottom: 6 }}>
                   <input
                     type="checkbox"
@@ -330,19 +314,32 @@ export function AddEditEventForm({ event, isAdding, onSave, onCancel, onDelete }
         </div>
         <div className="form-group">
           <label>Location (Room):</label>
-          <select value={location} onChange={e => setLocation(e.target.value)}>
+          <select
+            value={selectedRoomId ?? ''}
+            onChange={e => {
+              const raw = e.target.value;
+              if (!raw) {
+                setSelectedRoomId(null);
+                setLocation('');
+                return;
+              }
+              const rid = parseInt(raw, 10);
+              const room = availableRooms.find(r => r.id === rid);
+              setSelectedRoomId(Number.isNaN(rid) ? null : rid);
+              setLocation(room?.roomName || '');
+            }}
+            disabled={!date || loadingRooms}
+          >
             <option value="">Select a room (optional)</option>
-            <option value="A">Room A</option>
-            <option value="B">Room B</option>
-            <option value="C">Room C</option>
-            <option value="D">Room D</option>
-            <option value="E">Room E</option>
-            <option value="F">Room F</option>
-            <option value="G">Room G</option>
-            <option value="H">Room H</option>
-            <option value="I">Room I</option>
-            <option value="J">Room J</option>
+            {availableRooms.map(r => (
+              <option key={r.id} value={r.id}>{r.roomName}</option>
+            ))}
           </select>
+          {loadingRooms && <div style={{ fontSize: '0.85rem', color: '#666', marginTop: 6 }}>Loading rooms…</div>}
+          {!loadingRooms && bookingError && <div style={{ fontSize: '0.85rem', color: 'red', marginTop: 6 }}>{bookingError}</div>}
+          {!loadingRooms && date && availableRooms.length === 0 && (
+            <div style={{ fontSize: '0.85rem', color: '#666', marginTop: 6 }}>No rooms available.</div>
+          )}
         </div>
         <div className="form-actions">
           <button type="submit" className="btn primary" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>

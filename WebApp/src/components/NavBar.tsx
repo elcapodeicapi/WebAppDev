@@ -50,7 +50,6 @@ export default function Navbar() {
         setInviteCount((invited || []).length);
       } catch {
         if (cancelled) return;
-        // Notifications are non-critical; fail silently.
         setTomorrowEvents([]);
         setInviteCount(0);
       }
@@ -90,13 +89,11 @@ export default function Navbar() {
       {/* Center: Nav links */}
       <div className="navbar-center">
         {user?.role === 'Admin' ? (
-          // Admin navigation
           <>
             <Link to="/dashboard">Dashboard</Link>
             <Link to="/events">Events</Link>
           </>
         ) : (
-          // Employee navigation
           <>
             <Link to="/home">Home</Link>
             <Link to="/profile">My Profile</Link>

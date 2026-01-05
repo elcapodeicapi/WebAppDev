@@ -15,7 +15,6 @@ public class UsersController : ControllerBase
     public record UserLite(int Id, string Username, string FullName);
     public record UserFull(int Id, string Username, string Name, string Email, string Role);
 
-    // GET: api/users
     [HttpGet]
     [SessionRequired]
     public async Task<ActionResult<IEnumerable<object>>> Get()
@@ -23,11 +22,9 @@ public class UsersController : ControllerBase
         var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
         var userId = (int)userIdObj;
         
-        // Check if requesting user is admin
         var user = await _db.Users.FindAsync(userId);
         if (user?.Role != "Admin")
         {
-            // Return lite version for non-admin
             var liteUsers = await _db.Users
                 .OrderBy(u => u.Username)
                 .Select(u => new UserLite(u.Id, u.Username, u.Name))
@@ -35,7 +32,6 @@ public class UsersController : ControllerBase
             return Ok(liteUsers);
         }
 
-        // Return full version for admin
         var fullUsers = await _db.Users
             .OrderBy(u => u.Username)
             .Select(u => new UserFull(u.Id, u.Username, u.Name, u.Email, u.Role))

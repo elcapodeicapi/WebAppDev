@@ -1,4 +1,3 @@
-// src/MockedData/MockedData.ts
 export type MeetingRoom = {
     id: string;
     title: string;

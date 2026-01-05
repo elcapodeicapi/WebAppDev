@@ -12,7 +12,6 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 
 export default function CalendarPage() {
-  // ---- STATE ----
   const { user } = useAuth();
   const [weekStart, setWeekStart] = useState(() => {
     const today = new Date();
@@ -34,22 +33,18 @@ export default function CalendarPage() {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leaveEventId, setLeaveEventId] = useState<string | number | null>(null);
 
-  // Fetch events from API on component mount
   useEffect(() => {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        // Show only events the logged-in user is participating in (e.g., Going)
         const [mine, invited] = await Promise.all([
           apiGet<any[]>('/api/events/mine'),
           apiGet<any[]>('/api/events/invited').catch(() => [] as any[]),
         ]);
         setInvitedEvents(invited);
-        // Map backend response to MeetingRoom format
         const mapped = mine.map((evt: any) => {
           const eventDateTime = new Date(evt.eventDate);
           
-          // Extract time from eventDate as "H AM/PM" format
           const hours = eventDateTime.getHours();
           const isAM = hours < 12;
           const displayHour = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
@@ -73,7 +68,6 @@ export default function CalendarPage() {
       } catch (err: any) {
         console.error('Failed to fetch events:', err);
         setError('Failed to load events');
-        // Set empty meetings array on error to allow calendar to render
         setMeetings([]);
         setInvitedEvents([]);
       } finally {
@@ -83,24 +77,19 @@ export default function CalendarPage() {
     fetchEvents();
   }, []);
 
-  // ---- WEEK NAVIGATION ----
   const changeWeek = (dir: 'next' | 'prev') => {
     const newWeek = new Date(weekStart);
     newWeek.setDate(newWeek.getDate() + (dir === 'next' ? 7 : -7));
     setWeekStart(newWeek);
   };
 
-  // ---- EVENT HANDLERS ----
   const handleAddClick = () => {
-    // Open lege Add-formulier
     setEditingMeeting(null);
     setIsAdding(true);
     setSelectedMeeting(null);
   };
 
   const handleSaveEvent = () => {
-    // Event was already saved to backend in AddEditEventForm
-    // Refresh the events list to show the newly created event
     const fetchEvents = async () => {
       try {
         const response = await apiGet<any[]>('/api/events/mine');
@@ -146,7 +135,6 @@ export default function CalendarPage() {
     
     try {
       await apiDelete(`/api/events/${deleteEventId}`);
-      // Refresh events list
       const response = await apiGet<any[]>('/api/events/mine');
       const mapped = response.map((evt: any) => {
         const eventDateTime = new Date(evt.eventDate);
@@ -198,7 +186,6 @@ export default function CalendarPage() {
 
     try {
       await apiPost(`/api/events/${leaveEventId}/decline`, {});
-      // Refresh events list
       const response = await apiGet<any[]>('/api/events/mine');
       const mapped = response.map((evt: any) => {
         const eventDateTime = new Date(evt.eventDate);
@@ -245,7 +232,6 @@ export default function CalendarPage() {
     setIsAdding(true);
   };
 
-  // Debug: Log state to see what's happening
   console.log('CalendarPage state:', { loading, error, meetingsCount: meetings.length });
 
   const tomorrow = new Date();
@@ -277,7 +263,7 @@ export default function CalendarPage() {
       {loading && <div style={{ padding: '1rem' }}>Loading events...</div>}
       <div className="calendar-main-content">
         <div className="calendar-container" style={{ color: '#000' }}>
-          <h1>📅 Weekly Calendar</h1>
+          <h1>Weekly Calendar</h1>
 
           <div
             style={{

@@ -26,9 +26,9 @@ export default function LoginPage() {
             <span style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
           </div>
 
-        
 
-          {/* ✅ Register link below form */}
+
+                  {/* Register link below form */}
           <p style={{ marginTop: '1rem' }}>
             Don’t have an account?{' '}
             <a href="/register" style={{ color: '#646cff', fontWeight: '600' }}>

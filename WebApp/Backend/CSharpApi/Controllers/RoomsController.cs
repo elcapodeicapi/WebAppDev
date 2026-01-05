@@ -4,6 +4,7 @@ using WebAppDev.AuthApi.Data;
 using WebAppDev.AuthApi.DTOs;
 using WebAppDev.AuthApi.Filters;
 using WebAppDev.AuthApi.Models;
+using WebAppDev.AuthApi.Services;
 
 namespace WebAppDev.AuthApi.Controllers;
 
@@ -18,7 +19,6 @@ public class RoomsController : ControllerBase
         _db = db;
     }
 
-    // GET: api/rooms
     [HttpGet]
     public async Task<ActionResult> GetAllRooms()
     {
@@ -34,7 +34,6 @@ public class RoomsController : ControllerBase
         return Ok(rooms);
     }
 
-    // GET: api/rooms/availability?date=2025-12-19
     [HttpGet("availability")]
     [SessionRequired]
     public async Task<ActionResult> GetAvailability([FromQuery] string date)
@@ -72,7 +71,6 @@ public class RoomsController : ControllerBase
         return Ok(result);
     }
 
-    // POST: api/rooms/book - book a room for a time range
     [HttpPost("book")]
     [SessionRequired]
     public async Task<ActionResult> Book([FromBody] CreateRoomBookingRequest req)
@@ -100,30 +98,39 @@ public class RoomsController : ControllerBase
         var startTimeOnly = TimeOnly.FromTimeSpan(startDateTime.TimeOfDay);
         var endTimeOnly = startTimeOnly.AddHours(req.DurationHours);
 
-        var hasConflict = await _db.RoomBookings.AnyAsync(rb =>
-            rb.RoomId == req.RoomId &&
-            rb.BookingDate.Date == datePart.Date &&
-            rb.StartTime < endTimeOnly &&
-            rb.EndTime > startTimeOnly);
-
-        if (hasConflict)
+        var roomLock = RoomBookingLock.ForRoomDate(req.RoomId, datePart.Date);
+        await roomLock.WaitAsync();
+        try
         {
-            return BadRequest(new { message = "Room is already booked for that time range" });
+            var hasConflict = await _db.RoomBookings.AnyAsync(rb =>
+                rb.RoomId == req.RoomId &&
+                rb.BookingDate.Date == datePart.Date &&
+                rb.StartTime < endTimeOnly &&
+                rb.EndTime > startTimeOnly);
+
+            if (hasConflict)
+            {
+                return BadRequest(new { message = "Room is already booked for that time range" });
+            }
+
+            var booking = new RoomBookings
+            {
+                RoomId = req.RoomId,
+                UserId = userId,
+                BookingDate = datePart.Date,
+                StartTime = startTimeOnly,
+                EndTime = endTimeOnly,
+                Purpose = req.Purpose,
+                NumberOfPeople = req.NumberOfPeople
+            };
+
+            _db.RoomBookings.Add(booking);
+            await _db.SaveChangesAsync();
         }
-
-        var booking = new RoomBookings
+        finally
         {
-            RoomId = req.RoomId,
-            UserId = userId,
-            BookingDate = datePart.Date,
-            StartTime = startTimeOnly,
-            EndTime = endTimeOnly,
-            Purpose = req.Purpose,
-            NumberOfPeople = req.NumberOfPeople
-        };
-
-        _db.RoomBookings.Add(booking);
-        await _db.SaveChangesAsync();
+            roomLock.Release();
+        }
 
         return Ok(new { success = true });
     }

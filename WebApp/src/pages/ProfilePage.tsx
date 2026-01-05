@@ -23,20 +23,17 @@ const ProfilePage: React.FC = () => {
 
 
 
-  // Fetch upcoming events
   React.useEffect(() => {
     let mounted = true;
     async function load() {
       try {
         const now = new Date();
 
-        // First, try to load events the user is participating in
         let res = await apiGet<any[]>('/api/events/mine');
         let upcoming = (res || [])
           .filter(e => new Date(e.eventDate) >= now)
           .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
 
-        // If there are no personal upcoming events, fall back to all upcoming events
         if (upcoming.length === 0) {
           res = await apiGet<any[]>('/api/events/upcoming');
           upcoming = (res || [])
@@ -54,7 +51,6 @@ const ProfilePage: React.FC = () => {
     return () => { mounted = false; };
   }, []);
 
-  // Fetch user's room bookings
   React.useEffect(() => {
     let mounted = true;
     async function loadBookings() {
@@ -100,7 +96,6 @@ const ProfilePage: React.FC = () => {
         console.error('Error status:', err.response?.status);
         console.error('Error message:', err.message);
         
-        // Handle authentication errors specifically
         if (err.response?.status === 401) {
           console.log('=== PROFILE: Authentication error - user not logged in ===');
           if (mounted) setRoomBookings([]);
@@ -212,8 +207,6 @@ const ProfilePage: React.FC = () => {
         jobTitle: form.jobTitle
       };
 
-      // call API
-      // Use apiPost helper which surfaces server messages
       const res = await apiPost<any, any>('/api/auth/profile', body);
       console.log('profile update response', res);
 
@@ -222,7 +215,6 @@ const ProfilePage: React.FC = () => {
         return;
       }
 
-      // update localStorage and reload to refresh AuthContext
       const raw = window.localStorage.getItem('auth');
       if (raw) {
         const parsed = JSON.parse(raw);
@@ -334,7 +326,7 @@ const ProfilePage: React.FC = () => {
                 {/* Room Bookings Section */}
                 <div style={{ marginTop: '1.5rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <h3 style={{ fontSize: '1rem', margin: 0 }}>🏢 My Room Bookings</h3>
+                    <h3 style={{ fontSize: '1rem', margin: 0 }}>My Room Bookings</h3>
                     <button
                       onClick={() => setRefreshBookings(prev => prev + 1)}
                       style={{
@@ -347,12 +339,12 @@ const ProfilePage: React.FC = () => {
                         cursor: 'pointer'
                       }}
                     >
-                      🔄 Refresh
+                      Refresh
                     </button>
                   </div>
                   {!user ? (
                     <div style={{ fontSize: '0.9rem', color: '#dc2626', padding: '1rem', backgroundColor: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
-                      ⚠️ You need to be logged in to view your room bookings.
+                      You need to be logged in to view your room bookings.
                       <br />
                       <a href="/login" style={{ color: '#4f46e5', textDecoration: 'underline' }}>Click here to log in</a>
                     </div>
@@ -369,28 +361,28 @@ const ProfilePage: React.FC = () => {
                       {roomBookings.map((booking, i) => (
                         <li key={i} style={{ ...styles.listItem, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', marginBottom: '0.5rem' }}>
                           <div style={styles.itemHeader}>
-                            📍 {booking.RoomName || booking.roomName || 'Unknown Room'}
+                            Room: {booking.RoomName || booking.roomName || 'Unknown Room'}
                           </div>
                           <div style={styles.itemMeta}>
-                            📅 {booking.BookingDate ? (() => {
+                            Date: {(booking.BookingDate || booking.bookingDate) ? (() => {
                               try {
-                                const dateStr = booking.BookingDate;
+                                const dateStr = booking.BookingDate || booking.bookingDate;
                                 const date = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T00:00:00');
                                 return isNaN(date.getTime()) ? dateStr : date.toLocaleDateString();
                               } catch {
-                                return booking.BookingDate;
+                                return booking.BookingDate || booking.bookingDate;
                               }
                             })() : 'Unknown date'} • 
-                            ⏰ {booking.StartTime || 'Unknown'} - {booking.EndTime || 'Unknown'}
+                            Time: {(booking.StartTime || booking.startTime) || 'Unknown'} - {(booking.EndTime || booking.endTime) || 'Unknown'}
                           </div>
                           <div style={styles.itemDetails}>
-                            👥 {booking.numberOfPeople || booking.NumberOfPeople || 'Unknown'} people
+                            People: {booking.NumberOfPeople || booking.numberOfPeople || 'Unknown'}
                           </div>
-                          {booking.Purpose && (
-                            <div style={styles.itemDetails}>📝 {booking.Purpose}</div>
+                          {(booking.Purpose || booking.purpose) && (
+                            <div style={styles.itemDetails}>Purpose: {booking.Purpose || booking.purpose}</div>
                           )}
-                          {booking.DurationHours && (
-                            <div style={styles.itemDetails}>⏱️ {booking.DurationHours} hours</div>
+                          {(booking.DurationHours || booking.durationHours) && (
+                            <div style={styles.itemDetails}>Duration: {booking.DurationHours || booking.durationHours} hours</div>
                           )}
                         </li>
                       ))}

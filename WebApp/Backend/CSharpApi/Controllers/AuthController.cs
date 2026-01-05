@@ -23,10 +23,8 @@ public class AuthController : ControllerBase
 
     private string? GetSessionId()
     {
-        // Prefer HttpOnly cookie
         var cookieSid = Request.Cookies["sid"];
         if (!string.IsNullOrWhiteSpace(cookieSid)) return cookieSid;
-        // Fallback to header (e.g., for non-cookie clients)
         var headerSid = Request.Headers["X-Session-Id"].FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(headerSid)) return headerSid;
         return null;
@@ -57,7 +55,6 @@ public class AuthController : ControllerBase
         }
         var resp = await _auth.LoginAsync(request);
         if (!resp.Success) return Unauthorized(resp);
-        // Set HttpOnly cookie with session id
         if (!string.IsNullOrEmpty(resp.SessionId))
         {
             var cookieOptions = new CookieOptions
@@ -69,7 +66,6 @@ public class AuthController : ControllerBase
                 Path = "/"
             };
             Response.Cookies.Append("sid", resp.SessionId, cookieOptions);
-            // Do not expose session id back to client if strict; keep current shape but client should ignore
         }
         return Ok(resp);
     }
@@ -90,7 +86,6 @@ public class AuthController : ControllerBase
         var sid = GetSessionId();
         if (string.IsNullOrWhiteSpace(sid)) return BadRequest();
         await _auth.LogoutAsync(sid);
-        // Clear cookie
         Response.Cookies.Delete("sid", new CookieOptions { Path = "/" });
         return NoContent();
     }
@@ -98,7 +93,6 @@ public class AuthController : ControllerBase
     [HttpPost("profile")]
     public async Task<ActionResult<AuthResponse>> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
-        // Always resolve session from cookie/header, ignore body SessionId
         request.SessionId = GetSessionId();
         var resp = await _auth.UpdateProfileAsync(request);
         if (!resp.Success)
@@ -110,7 +104,6 @@ public class AuthController : ControllerBase
         return Ok(resp);
     }
 
-    // Simple ping to verify controller is reachable
     [HttpGet("ping")]
     public ActionResult<string> Ping()
     {

@@ -50,7 +50,6 @@ export default function EventDetail() {
         const eventData = await apiGet<Event>(`/api/events/${id}`);
         setEvent(eventData);
 
-        // Try to get current user from session
         const sessionData = await apiGet<any>('/api/auth/session');
         if (sessionData?.active && sessionData?.userId) {
           setCurrentUser({ id: sessionData.userId });

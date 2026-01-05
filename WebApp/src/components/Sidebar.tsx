@@ -1,4 +1,3 @@
-// src/components/Sidebar.tsx
 import type { JSX } from 'react';
 import { AddEditEventForm } from './AddEditEventForm';
 

@@ -45,10 +45,7 @@ export default function InvitationsPage() {
   async function respond(eventId: number, status: 'Going' | 'Declined') {
     setError(null);
     try {
-      // Use new attendance endpoint: require userId; infer from session via backend, but keep shape
-      // If backend expects userId, Invitations page can omit it; our API layer adds cookies for session
       await apiPost(`/api/attendance`, { eventId, status });
-      // refresh invitations
       const invited = await apiGet<EventItem[]>('/api/events/invited');
       setEvents(invited);
     } catch (e: any) {
@@ -56,7 +53,6 @@ export default function InvitationsPage() {
     }
   }
 
-  // Load participants for each event
   const [participants, setParticipants] = useState<Record<number, Array<{ id: number; username: string; status: string }>>>({});
   useEffect(() => {
     async function loadParts() {

@@ -4,6 +4,7 @@ using WebAppDev.AuthApi.Data;
 using WebAppDev.AuthApi.Models;
 using WebAppDev.AuthApi.DTOs;
 using WebAppDev.AuthApi.Filters;
+using WebAppDev.AuthApi.Services;
 
 namespace WebAppDev.AuthApi.Controllers;
 
@@ -73,7 +74,6 @@ public class EventsController : ControllerBase
         };
     }
 
-    // GET: api/events/mine - events I'm participating in
     [HttpGet("mine")]
     [SessionRequired]
     public async Task<ActionResult<IEnumerable<EventDto>>> GetMine()
@@ -87,8 +87,6 @@ public class EventsController : ControllerBase
                 .ThenInclude(p => p.User)
             .Include(e => e.Reviews)
                 .ThenInclude(r => r.User)
-            // Only show events the user has accepted (e.g. Going/Host).
-            // Invitations are handled separately by GET api/events/invited.
             .Where(e => e.EventParticipation.Any(p =>
                 p.UserId == userId && (p.Status == "Going" || p.Status == "Host")))
             .OrderBy(e => e.EventDate)
@@ -96,7 +94,6 @@ public class EventsController : ControllerBase
         return Ok(list.Select(MapEventToDto));
     }
 
-    // GET: api/events/invited - events where I'm invited
     [HttpGet("invited")]
     [SessionRequired]
     public async Task<ActionResult<IEnumerable<EventDto>>> GetInvited()
@@ -116,7 +113,6 @@ public class EventsController : ControllerBase
         return Ok(list.Select(MapEventToDto));
     }
 
-    // GET: api/events/admin/all - all events with details (admin only)
     [HttpGet("admin/all")]
     [SessionRequired]
     public async Task<ActionResult<object>> GetAllAdmin()
@@ -125,7 +121,6 @@ public class EventsController : ControllerBase
         if (userIdObj is null) return Unauthorized();
         var userId = (int)userIdObj;
         
-        // Verify user is admin
         var user = await _db.Users.FindAsync(userId);
         if (user?.Role != "Admin") return BadRequest(new { message = "Only admins can access this endpoint" });
 
@@ -156,7 +151,6 @@ public class EventsController : ControllerBase
         return Ok(list);
     }
 
-    // GET: api/events
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EventDto>>> GetAll()
     {
@@ -171,7 +165,6 @@ public class EventsController : ControllerBase
         return Ok(list.Select(MapEventToDto));
     }
 
-    // GET: api/events/upcoming
     [HttpGet("upcoming")]
     public async Task<ActionResult<IEnumerable<EventDto>>> GetUpcoming()
     {
@@ -188,7 +181,6 @@ public class EventsController : ControllerBase
         return Ok(list.Select(MapEventToDto));
     }
 
-    // GET: api/events/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<EventDto>> Get(int id)
     {
@@ -204,12 +196,10 @@ public class EventsController : ControllerBase
         return Ok(MapEventToDto(item));
     }
 
-    // POST: api/events
     [HttpPost]
     [SessionRequired]
     public async Task<ActionResult<Events>> Create([FromBody] CreateEventRequest req)
     {
-        // Any authenticated user can create events
         var userIdObj = HttpContext.Items["UserId"];
         if (userIdObj is null) return Unauthorized();
         var userId = (int)userIdObj;
@@ -236,7 +226,52 @@ public class EventsController : ControllerBase
         var startDateTime = datePart.Date + timePart;
         var endDateTime = startDateTime.AddHours(req.DurationHours);
 
-        if (!string.IsNullOrWhiteSpace(req.Location))
+        int? roomId = req.RoomId;
+        Rooms? roomForBooking = null;
+        if (roomId != null)
+        {
+            roomForBooking = await _db.Rooms.FirstOrDefaultAsync(r => r.Id == roomId.Value);
+            if (roomForBooking == null)
+            {
+                return BadRequest(new { message = "Room not found" });
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(req.Location))
+        {
+            roomForBooking = await _db.Rooms.FirstOrDefaultAsync(r => r.RoomName == req.Location);
+            if (roomForBooking != null)
+            {
+                roomId = roomForBooking.Id;
+            }
+        }
+
+        SemaphoreSlim? roomLock = null;
+        if (roomId != null)
+        {
+            roomLock = RoomBookingLock.ForRoomDate(roomId.Value, startDateTime.Date);
+            await roomLock.WaitAsync();
+        }
+
+        try
+        {
+            if (roomId != null)
+            {
+                var startTimeOnly = TimeOnly.FromDateTime(startDateTime);
+                var endTimeOnly = TimeOnly.FromDateTime(endDateTime);
+
+                var hasBookingConflict = await _db.RoomBookings.AnyAsync(rb =>
+                    rb.RoomId == roomId.Value &&
+                    rb.BookingDate.Date == startDateTime.Date &&
+                    rb.StartTime < endTimeOnly &&
+                    rb.EndTime > startTimeOnly);
+
+                if (hasBookingConflict)
+                {
+                    return Conflict(new { message = "Room is already booked for that time range." });
+                }
+            }
+
+        if (roomId == null && !string.IsNullOrWhiteSpace(req.Location))
         {
             var hasConflict = await _db.Events.AnyAsync(e =>
                 e.Location == req.Location &&
@@ -249,10 +284,8 @@ public class EventsController : ControllerBase
             }
         }
 
-        // Determine who the actual host should be
         int hostUserId = userId;
         
-        // If this is an admin creating an event and a host is specified by name, find that user
         var currentUser = await _db.Users.FindAsync(userId);
         if (currentUser?.Role == "Admin" && !string.IsNullOrWhiteSpace(req.Host))
         {
@@ -274,15 +307,13 @@ public class EventsController : ControllerBase
             DurationHours = req.DurationHours,
             Host = req.Host,
             Attendees = req.Attendees,
-            Location = req.Location,
+            Location = roomForBooking?.RoomName ?? req.Location,
             CreatedBy = hostUserId
         };
 
-        // Add event first so it gets an ID
         _db.Events.Add(evt);
         await _db.SaveChangesAsync();
 
-        // Ensure host is a participant (Going status so they see it in calendar)
         if (evt.CreatedBy > 0)
         {
             _db.Set<EventParticipation>().Add(new EventParticipation
@@ -293,26 +324,44 @@ public class EventsController : ControllerBase
             });
         }
 
-        // Also create a room booking entry if the event is tied to a room (Location)
-        if (!string.IsNullOrWhiteSpace(evt.Location) && evt.CreatedBy > 0)
+        if (roomId != null && evt.CreatedBy > 0)
         {
-            var room = await _db.Rooms.FirstOrDefaultAsync(r => r.RoomName == evt.Location);
-            if (room != null)
+            var startTimeOnly = TimeOnly.FromDateTime(startDateTime);
+            var endTimeOnly = TimeOnly.FromDateTime(endDateTime);
+
+            var hasBookingConflict = await _db.RoomBookings.AnyAsync(rb =>
+                rb.RoomId == roomId.Value &&
+                rb.BookingDate.Date == startDateTime.Date &&
+                rb.StartTime < endTimeOnly &&
+                rb.EndTime > startTimeOnly);
+
+            if (hasBookingConflict)
             {
-                var booking = new RoomBookings
-                {
-                    RoomId = room.Id,
-                    UserId = evt.CreatedBy,
-                    BookingDate = startDateTime.Date,
-                    StartTime = TimeOnly.FromDateTime(startDateTime),
-                    EndTime = TimeOnly.FromDateTime(endDateTime),
-                    Purpose = evt.Description
-                };
-                _db.RoomBookings.Add(booking);
+                return Conflict(new { message = "Room is already booked for that time range." });
             }
+
+            var attendeeCount = 0;
+            if (!string.IsNullOrWhiteSpace(req.Attendees))
+            {
+                attendeeCount = req.Attendees
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(s => s.Trim())
+                    .Count(s => !string.IsNullOrWhiteSpace(s));
+            }
+
+            var booking = new RoomBookings
+            {
+                RoomId = roomId.Value,
+                UserId = evt.CreatedBy,
+                BookingDate = startDateTime.Date,
+                StartTime = startTimeOnly,
+                EndTime = endTimeOnly,
+                Purpose = $"Event:{evt.Id}:{evt.Title}",
+                NumberOfPeople = attendeeCount + 1
+            };
+            _db.RoomBookings.Add(booking);
         }
 
-        // Optionally add attendees from comma-separated usernames as Invited
         if (!string.IsNullOrWhiteSpace(req.Attendees))
         {
             var usernames = req.Attendees.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -333,13 +382,15 @@ public class EventsController : ControllerBase
             }
         }
 
-        await _db.SaveChangesAsync();
-
-        // Return the newly created event via GET (DTO includes participants/reviews)
-        return CreatedAtAction(nameof(Get), new { id = evt.Id }, evt);
+            await _db.SaveChangesAsync();
+            return CreatedAtAction(nameof(Get), new { id = evt.Id }, evt);
+        }
+        finally
+        {
+            if (roomLock != null) roomLock.Release();
+        }
     }
 
-    // PUT: api/events/{id}
     [HttpPut("{id}")]
     [SessionRequired]
     public async Task<IActionResult> Update(int id, [FromBody] CreateEventRequest req)
@@ -353,12 +404,10 @@ public class EventsController : ControllerBase
         var evt = await _db.Events.FindAsync(id);
         if (evt == null) return NotFound();
 
-        // Check if user is the event creator or admin
         var user = await _db.Users.FindAsync(userId);
         if (evt.CreatedBy != userId && user?.Role != "Admin")
             return BadRequest(new { message = "Only the event creator or admin can edit this event" });
 
-        // Parse date and time
         DateTime datePart;
         if (!DateTime.TryParseExact(req.Date, new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" },
             System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out datePart))
@@ -379,7 +428,47 @@ public class EventsController : ControllerBase
         var startDateTime = datePart.Date + timePart;
         var endDateTime = startDateTime.AddHours(req.DurationHours);
 
-        if (!string.IsNullOrWhiteSpace(req.Location))
+        int? roomId = req.RoomId;
+        Rooms? roomForBooking = null;
+        if (roomId != null)
+        {
+            roomForBooking = await _db.Rooms.FirstOrDefaultAsync(r => r.Id == roomId.Value);
+            if (roomForBooking == null)
+            {
+                return BadRequest(new { message = "Room not found" });
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(req.Location))
+        {
+            roomForBooking = await _db.Rooms.FirstOrDefaultAsync(r => r.RoomName == req.Location);
+            if (roomForBooking != null)
+            {
+                roomId = roomForBooking.Id;
+            }
+        }
+
+        var existingEventBooking = await _db.RoomBookings
+            .FirstOrDefaultAsync(rb => rb.Purpose != null && rb.Purpose.StartsWith($"Event:{id}:") );
+
+        if (roomId != null)
+        {
+            var startTimeOnly = TimeOnly.FromDateTime(startDateTime);
+            var endTimeOnly = TimeOnly.FromDateTime(endDateTime);
+
+            var hasBookingConflict = await _db.RoomBookings.AnyAsync(rb =>
+                rb.RoomId == roomId.Value &&
+                rb.BookingDate.Date == startDateTime.Date &&
+                rb.StartTime < endTimeOnly &&
+                rb.EndTime > startTimeOnly &&
+                (existingEventBooking == null || rb.Id != existingEventBooking.Id));
+
+            if (hasBookingConflict)
+            {
+                return Conflict(new { message = "Room is already booked for that time range." });
+            }
+        }
+
+        if (roomId == null && !string.IsNullOrWhiteSpace(req.Location))
         {
             var hasConflict = await _db.Events.AnyAsync(e =>
                 e.Id != id &&
@@ -393,17 +482,58 @@ public class EventsController : ControllerBase
             }
         }
 
-        // Update the event
         evt.Title = req.Title;
         evt.Description = req.Description;
         evt.EventDate = startDateTime;
         evt.DurationHours = req.DurationHours;
         evt.Host = req.Host;
         evt.Attendees = req.Attendees;
-        evt.Location = req.Location;
+        evt.Location = roomForBooking?.RoomName ?? req.Location;
 
-        // Ensure newly added attendees are invited (EventParticipation status = Invited)
-        // The frontend stores attendees as a comma-separated username list.
+        if (roomId != null)
+        {
+            var startTimeOnly = TimeOnly.FromDateTime(startDateTime);
+            var endTimeOnly = TimeOnly.FromDateTime(endDateTime);
+
+            var attendeeCount = 0;
+            if (!string.IsNullOrWhiteSpace(req.Attendees))
+            {
+                attendeeCount = req.Attendees
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(s => s.Trim())
+                    .Count(s => !string.IsNullOrWhiteSpace(s));
+            }
+
+            if (existingEventBooking == null)
+            {
+                _db.RoomBookings.Add(new RoomBookings
+                {
+                    RoomId = roomId.Value,
+                    UserId = evt.CreatedBy,
+                    BookingDate = startDateTime.Date,
+                    StartTime = startTimeOnly,
+                    EndTime = endTimeOnly,
+                    Purpose = $"Event:{evt.Id}:{evt.Title}",
+                    NumberOfPeople = attendeeCount + 1
+                });
+            }
+            else
+            {
+                existingEventBooking.RoomId = roomId.Value;
+                existingEventBooking.UserId = evt.CreatedBy;
+                existingEventBooking.BookingDate = startDateTime.Date;
+                existingEventBooking.StartTime = startTimeOnly;
+                existingEventBooking.EndTime = endTimeOnly;
+                existingEventBooking.Purpose = $"Event:{evt.Id}:{evt.Title}";
+                existingEventBooking.NumberOfPeople = attendeeCount + 1;
+                _db.Entry(existingEventBooking).State = EntityState.Modified;
+            }
+        }
+        else if (existingEventBooking != null)
+        {
+            _db.RoomBookings.Remove(existingEventBooking);
+        }
+
         if (!string.IsNullOrWhiteSpace(req.Attendees))
         {
             var usernames = req.Attendees
@@ -427,10 +557,8 @@ public class EventsController : ControllerBase
 
                 foreach (var u in usersToInvite)
                 {
-                    // Don't create a duplicate row (composite PK)
                     if (existingUserIds.Contains(u.Id)) continue;
 
-                    // Don't invite the creator as an attendee
                     if (u.Id == evt.CreatedBy) continue;
 
                     _db.EventParticipations.Add(new EventParticipation
@@ -456,7 +584,6 @@ public class EventsController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: api/events/{id}
     [HttpDelete("{id}")]
     [SessionRequired]
     public async Task<IActionResult> Delete(int id)
@@ -468,17 +595,22 @@ public class EventsController : ControllerBase
         var evt = await _db.Events.FindAsync(id);
         if (evt == null) return NotFound();
 
-        // Check if user is the event creator or admin
         var user = await _db.Users.FindAsync(userId);
         if (evt.CreatedBy != userId && user?.Role != "Admin")
             return BadRequest(new { message = "Only the event creator or admin can delete this event" });
+
+        var existingEventBooking = await _db.RoomBookings
+            .FirstOrDefaultAsync(rb => rb.Purpose != null && rb.Purpose.StartsWith($"Event:{id}:") );
+        if (existingEventBooking != null)
+        {
+            _db.RoomBookings.Remove(existingEventBooking);
+        }
 
         _db.Events.Remove(evt);
         await _db.SaveChangesAsync();
         return NoContent();
     }
 
-    // POST: api/events/{id}/accept - Accept an invitation to an event
     [HttpPost("{id}/accept")]
     [SessionRequired]
     public async Task<IActionResult> AcceptInvitation(int id)
@@ -505,7 +637,6 @@ public class EventsController : ControllerBase
         return Ok(new { message = "Invitation accepted" });
     }
 
-    // POST: api/events/{id}/decline - Decline/leave an event
     [HttpPost("{id}/decline")]
     [SessionRequired]
     public async Task<IActionResult> DeclineOrLeaveEvent(int id)
@@ -517,7 +648,6 @@ public class EventsController : ControllerBase
         var evt = await _db.Events.FindAsync(id);
         if (evt == null) return NotFound(new { message = "Event not found" });
 
-        // Can't leave if you're the host
         if (evt.CreatedBy == userId)
             return BadRequest(new { message = "Event creator cannot leave their own event. Delete it instead." });
 
@@ -544,7 +674,6 @@ public class EventsController : ControllerBase
         public int EventId { get; set; }
     }
 
-    // POST: api/events/attend - User attends an event
     [HttpPost("attend")]
     [SessionRequired]
     public async Task<ActionResult<object>> AttendEvent([FromBody] AttendanceRequest req)
@@ -553,12 +682,10 @@ public class EventsController : ControllerBase
         if (userIdObj is null) return Unauthorized();
         var currentUserId = (int)userIdObj;
 
-        // User can only register themselves (unless admin)
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (req.UserId != currentUserId && currentUser?.Role != "Admin")
             return BadRequest(new { message = "You can only register yourself for events" });
 
-        // Get the event
         var evt = await _db.Events
             .Include(e => e.EventParticipation)
             .FirstOrDefaultAsync(e => e.Id == req.EventId);
@@ -566,14 +693,12 @@ public class EventsController : ControllerBase
         if (evt == null)
             return NotFound(new { message = "Event not found" });
 
-        // Check if user is already attending
         var existingParticipation = await _db.Set<EventParticipation>()
             .SingleOrDefaultAsync(p => p.EventId == req.EventId && p.UserId == req.UserId);
         
         if (existingParticipation != null)
             return BadRequest(new { message = "User is already attending this event" });
 
-        // Check for scheduling conflicts with other events
         var userEvents = await _db.Set<EventParticipation>()
             .Where(p => p.UserId == req.UserId)
             .Select(p => p.Event)
@@ -588,7 +713,6 @@ public class EventsController : ControllerBase
 
             var existingEventEndTime = existingEvent.EventDate.AddHours(existingEvent.DurationHours);
 
-            // Check for overlap: event starts before existing event ends AND event ends after existing event starts
             if (evt.EventDate < existingEventEndTime && eventEndTime > existingEvent.EventDate)
             {
                 return BadRequest(new { 
@@ -597,7 +721,6 @@ public class EventsController : ControllerBase
             }
         }
 
-        // Add participation
         var participation = new EventParticipation
         {
             EventId = req.EventId,
@@ -608,7 +731,6 @@ public class EventsController : ControllerBase
         _db.Set<EventParticipation>().Add(participation);
         await _db.SaveChangesAsync();
 
-        // Return the updated event with participants
         var updatedEvent = await _db.Events
             .Where(e => e.Id == req.EventId)
             .Select(e => new
@@ -630,7 +752,6 @@ public class EventsController : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { id = req.EventId }, updatedEvent);
     }
 
-    // DELETE: api/events/{id}/participation
     [HttpDelete("{id}/participation")]
     [SessionRequired]
     public async Task<ActionResult> RemoveParticipation(int id)
@@ -644,7 +765,6 @@ public class EventsController : ControllerBase
         return NoContent();
     }
 
-    // GET: api/events/{id}/participants
     [HttpGet("{id}/participants")]
     public async Task<ActionResult<IEnumerable<object>>> GetParticipants(int id)
     {
@@ -655,8 +775,6 @@ public class EventsController : ControllerBase
         return Ok(list);
     }
 
-    // POST: api/events/{id}/reviews
-    // Create or update the logged-in user's review for this event (must be an attendee)
     [HttpPost("{id}/reviews")]
     [SessionRequired]
     public async Task<ActionResult<EventReviewDto>> UpsertReview(int id, [FromBody] CreateEventReviewRequest req)
@@ -686,7 +804,6 @@ public class EventsController : ControllerBase
             return NotFound(new { error = "Event not found." });
         }
 
-        // Only attendees (Going/Host) can review
         var isAttendee = await _db.EventParticipations.AsNoTracking().AnyAsync(p =>
             p.EventId == id &&
             p.UserId == userId &&
@@ -723,7 +840,6 @@ public class EventsController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-        // Reload user (in case it wasn't included on insert)
         if (existing.User == null)
         {
             existing.User = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
