@@ -12,6 +12,8 @@ const ProfilePage: React.FC = () => {
   const [editing, setEditing] = React.useState(false);
   const [form, setForm] = React.useState({ fullName: user?.fullName ?? '', username: (user as any)?.username ?? '', email: user?.email ?? '', phoneNumber: (user as any)?.phoneNumber ?? '', jobTitle: (user as any)?.jobTitle ?? '' });
   const [events, setEvents] = React.useState<Array<any> | null>(null);
+  const [roomBookings, setRoomBookings] = React.useState<Array<any> | null>(null);
+  const [refreshBookings, setRefreshBookings] = React.useState(0);
 
   React.useEffect(() => {
     if (user) {
@@ -51,6 +53,66 @@ const ProfilePage: React.FC = () => {
     load();
     return () => { mounted = false; };
   }, []);
+
+  // Fetch user's room bookings
+  React.useEffect(() => {
+    let mounted = true;
+    async function loadBookings() {
+      try {
+        console.log('=== PROFILE: Starting room bookings fetch ===');
+        console.log('User authenticated:', !!user);
+        console.log('User ID:', (user as any)?.id);
+        
+        if (!user) {
+          console.log('=== PROFILE: No user found, skipping bookings fetch ===');
+          if (mounted) setRoomBookings([]);
+          return;
+        }
+        
+        console.log('=== PROFILE: Fetching room bookings from API ===');
+        const res = await apiGet<any[]>('/api/roombookings/mine');
+        console.log('Raw API response:', res);
+        console.log('Response type:', typeof res);
+        console.log('Is array:', Array.isArray(res));
+        console.log('Array length:', res?.length);
+        
+        if (Array.isArray(res)) {
+          console.log('=== PROFILE: Room bookings data analysis ===');
+          res.forEach((booking, index) => {
+            console.log(`Booking ${index}:`, {
+              id: booking.Id,
+              roomName: booking.RoomName,
+              roomLocation: booking.RoomLocation,
+              roomCapacity: booking.RoomCapacity,
+              bookingDate: booking.BookingDate,
+              startTime: booking.StartTime,
+              endTime: booking.EndTime,
+              purpose: booking.Purpose,
+              durationHours: booking.DurationHours
+            });
+          });
+        }
+        
+        if (mounted) setRoomBookings(res || []);
+      } catch (err: any) {
+        console.error('=== PROFILE: Failed to load room bookings ===');
+        console.error('Error:', err);
+        console.error('Error response:', err.response);
+        console.error('Error status:', err.response?.status);
+        console.error('Error message:', err.message);
+        
+        // Handle authentication errors specifically
+        if (err.response?.status === 401) {
+          console.log('=== PROFILE: Authentication error - user not logged in ===');
+          if (mounted) setRoomBookings([]);
+        } else {
+          if (mounted) setRoomBookings([]);
+        }
+      }
+    }
+    loadBookings();
+    return () => { mounted = false; };
+  }, [refreshBookings, user]); // Re-fetch when refreshBookings changes or user changes
   if (initializing) {
     return (
       <div>
@@ -269,6 +331,66 @@ const ProfilePage: React.FC = () => {
                 <div style={styles.detailRow}><span style={styles.detailLabel}>Phone</span><span>{(user as any).phoneNumber ?? '—'}</span></div>
                 <div style={styles.detailRow}><span style={styles.detailLabel}>Job title</span><span>{(user as any).jobTitle ?? '—'}</span></div>
                 <div style={styles.detailRow}><span style={styles.detailLabel}>Role</span><span>{user.role}</span></div>
+
+                {/* Room Bookings Section */}
+                <div style={{ marginTop: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <h3 style={{ fontSize: '1rem', margin: 0 }}>🏢 My Room Bookings</h3>
+                    <button
+                      onClick={() => setRefreshBookings(prev => prev + 1)}
+                      style={{
+                        background: '#4f46e5',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '0.25rem 0.5rem',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🔄 Refresh
+                    </button>
+                  </div>
+                  {!user ? (
+                    <div style={{ fontSize: '0.9rem', color: '#dc2626', padding: '1rem', backgroundColor: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
+                      ⚠️ You need to be logged in to view your room bookings.
+                      <br />
+                      <a href="/login" style={{ color: '#4f46e5', textDecoration: 'underline' }}>Click here to log in</a>
+                    </div>
+                  ) : roomBookings === null ? (
+                    <div style={{ fontSize: '0.9rem', color: '#666' }}>Loading room bookings...</div>
+                  ) : roomBookings.length === 0 ? (
+                    <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                      No upcoming room bookings.
+                      <br />
+                      <small style={{ color: '#999' }}>Book a room to see it here!</small>
+                    </div>
+                  ) : (
+                    <ul style={styles.list}>
+                      {roomBookings.map((booking, i) => (
+                        <li key={i} style={{ ...styles.listItem, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', marginBottom: '0.5rem' }}>
+                          <div style={styles.itemHeader}>
+                            📍 {booking.RoomName || booking.roomName || 'Unknown Room'}
+                          </div>
+                          <div style={styles.itemMeta}>
+                            📅 {booking.BookingDate ? new Date(booking.BookingDate).toLocaleDateString() : 'Unknown date'} • 
+                            ⏰ {booking.StartTime || 'Unknown'} - {booking.EndTime || 'Unknown'}
+                          </div>
+                          <div style={styles.itemDetails}>
+                            👥 {booking.RoomCapacity || booking.roomCapacity || 'Unknown'} people • 
+                            📍 {booking.RoomLocation || booking.roomLocation || 'Unknown location'}
+                          </div>
+                          {booking.Purpose && (
+                            <div style={styles.itemDetails}>📝 {booking.Purpose}</div>
+                          )}
+                          {booking.DurationHours && (
+                            <div style={styles.itemDetails}>⏱️ {booking.DurationHours} hours</div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
 
                 {/* Past events with date range filter (moved under profile details) */}
                 <div style={{ marginTop: '1.5rem' }}>

@@ -67,10 +67,128 @@ public class RoomBookingsController : ControllerBase
             Purpose = req.Purpose
         };
 
-        _db.RoomBookings.Add(booking);
-        await _db.SaveChangesAsync();
+        Console.WriteLine($"=== CREATING BOOKING ===");
+        Console.WriteLine($"User ID: {userId}");
+        Console.WriteLine($"Room ID: {req.RoomId}");
+        Console.WriteLine($"Date: {datePart.Date:yyyy-MM-dd}");
+        Console.WriteLine($"Time: {startTimeOnly} - {endTimeOnly}");
+        Console.WriteLine($"Purpose: {req.Purpose}");
+        Console.WriteLine($"========================");
 
-        return Ok(new { success = true });
+        _db.RoomBookings.Add(booking);
+        var saveResult = await _db.SaveChangesAsync();
+
+        Console.WriteLine($"=== BOOKING SAVED ===");
+        Console.WriteLine($"SaveAsync result: {saveResult} records affected");
+        Console.WriteLine($"Booking ID: {booking.Id}");
+        Console.WriteLine($"====================");
+
+        // Verify the booking was actually saved by querying it back
+        var savedBooking = await _db.RoomBookings
+            .Include(rb => rb.Room)
+            .FirstOrDefaultAsync(rb => rb.Id == booking.Id);
+
+        if (savedBooking != null)
+        {
+            Console.WriteLine($"=== BOOKING VERIFIED ===");
+            Console.WriteLine($"Found saved booking with ID: {savedBooking.Id}");
+            Console.WriteLine($"Room: {savedBooking.Room?.RoomName}");
+            Console.WriteLine($"========================");
+            
+            return Ok(new { 
+                success = true, 
+                bookingId = booking.Id,
+                message = "Room booked successfully!",
+                booking = new {
+                    Id = savedBooking.Id,
+                    RoomName = savedBooking.Room?.RoomName,
+                    BookingDate = savedBooking.BookingDate.ToString("yyyy-MM-dd"),
+                    StartTime = savedBooking.StartTime.ToString(),
+                    EndTime = savedBooking.EndTime.ToString(),
+                    Purpose = savedBooking.Purpose
+                }
+            });
+        }
+        else
+        {
+            Console.WriteLine($"=== ERROR: BOOKING NOT FOUND AFTER SAVE ===");
+            return StatusCode(500, new { message = "Failed to save booking to database" });
+        }
+    }
+
+    // GET: api/roombookings/mine
+    [HttpGet("mine")]
+    [SessionRequired]
+    public async Task<ActionResult<IEnumerable<object>>> GetMyBookings()
+    {
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized(new { message = "Login required" });
+        var userId = (int)userIdObj;
+
+        Console.WriteLine($"=== PROFILE: FETCHING BOOKINGS FOR USER {userId} ===");
+        Console.WriteLine($"Today's date: {DateTime.Today:yyyy-MM-dd}");
+        
+        // First, let's check what's actually in the RoomBookings table for this user
+        var allUserBookings = await _db.RoomBookings
+            .Where(rb => rb.UserId == userId)
+            .ToListAsync();
+            
+        Console.WriteLine($"Total bookings in RoomBookings table for user {userId}: {allUserBookings.Count}");
+        foreach (var booking in allUserBookings)
+        {
+            Console.WriteLine($"  - Booking ID: {booking.Id}, RoomId: {booking.RoomId}, Date: {booking.BookingDate:yyyy-MM-dd}, Time: {booking.StartTime}-{booking.EndTime}");
+            Console.WriteLine($"    Is today or future: {booking.BookingDate >= DateTime.Today}");
+        }
+
+        var bookings = await _db.RoomBookings
+            .Where(rb => rb.UserId == userId && rb.BookingDate >= DateTime.Today)
+            .Include(rb => rb.Room)
+            .OrderBy(rb => rb.BookingDate)
+            .ThenBy(rb => rb.StartTime)
+            .ToListAsync();
+
+        Console.WriteLine($"Filtered bookings (today and future): {bookings.Count}");
+        
+        // Debug: Log what we found
+        Console.WriteLine($"=== DEBUG: Found {bookings.Count} bookings for user {userId} ===");
+        foreach (var booking in bookings)
+        {
+            Console.WriteLine($"Booking ID: {booking.Id}, Room: {booking.Room?.RoomName ?? "NULL"}, RoomId: {booking.RoomId}");
+            if (booking.Room != null)
+            {
+                Console.WriteLine($"  Room details: {booking.Room.RoomName}, {booking.Room.Location}, {booking.Room.Capacity}");
+            }
+            else
+            {
+                Console.WriteLine($"  Room relationship is NULL - checking RoomId: {booking.RoomId}");
+                
+                // Try to get the room directly
+                var roomDirect = await _db.Rooms.FindAsync(booking.RoomId);
+                if (roomDirect != null)
+                {
+                    Console.WriteLine($"  Direct room lookup: {roomDirect.RoomName}, {roomDirect.Location}, {roomDirect.Capacity}");
+                }
+                else
+                {
+                    Console.WriteLine($"  Room with ID {booking.RoomId} not found in Rooms table!");
+                }
+            }
+        }
+
+        var result = bookings.Select(rb => new
+        {
+            Id = rb.Id,
+            RoomName = rb.Room?.RoomName ?? "Unknown Room",
+            RoomLocation = rb.Room?.Location ?? "Unknown Location",
+            RoomCapacity = rb.Room?.Capacity ?? 0,
+            BookingDate = rb.BookingDate.ToString("yyyy-MM-dd"),
+            StartTime = rb.StartTime.ToString(),
+            EndTime = rb.EndTime.ToString(),
+            Purpose = rb.Purpose,
+            DurationHours = (rb.EndTime.ToTimeSpan() - rb.StartTime.ToTimeSpan()).TotalHours
+        });
+
+        Console.WriteLine($"=== RETURNING {result.Count()} BOOKINGS TO PROFILE ===");
+        return Ok(result);
     }
 
     // GET: api/roombookings/available?date=yyyy-MM-dd

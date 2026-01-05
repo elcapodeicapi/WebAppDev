@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WebAppDev.AuthApi.Data;
 
@@ -10,9 +11,11 @@ using WebAppDev.AuthApi.Data;
 namespace WebAppDev.AuthApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260104213300_FixRoomBookingsId")]
+    partial class FixRoomBookingsId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
@@ -128,9 +131,6 @@ namespace WebAppDev.AuthApi.Migrations
                     b.Property<int>("RoomId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("RoomsId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<TimeOnly>("StartTime")
                         .HasColumnType("TEXT");
 
@@ -140,8 +140,6 @@ namespace WebAppDev.AuthApi.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RoomId");
-
-                    b.HasIndex("RoomsId");
 
                     b.HasIndex("UserId");
 
@@ -351,14 +349,10 @@ namespace WebAppDev.AuthApi.Migrations
             modelBuilder.Entity("RoomBookings", b =>
                 {
                     b.HasOne("Rooms", "Room")
-                        .WithMany()
+                        .WithMany("RoomBookings")
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("Rooms", null)
-                        .WithMany("RoomBookings")
-                        .HasForeignKey("RoomsId");
 
                     b.HasOne("User", "User")
                         .WithMany()
