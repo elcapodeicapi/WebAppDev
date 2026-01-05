@@ -80,6 +80,25 @@ using (var scope = app.Services.CreateScope())
         await db.Database.MigrateAsync();
     }
     await DbInitializer.SeedAsync(db);
+    
+    // Ensure OfficeAttendances table exists for development
+    if (app.Environment.IsDevelopment())
+    {
+        var connection = db.Database.GetDbConnection();
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            CREATE TABLE IF NOT EXISTS OfficeAttendances (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                UserId INTEGER NOT NULL,
+                Date TEXT NOT NULL,
+                Status TEXT NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL,
+                FOREIGN KEY (UserId) REFERENCES Users (Id)
+            )";
+        command.ExecuteNonQuery();
+    }
 }
 
 app.Run();

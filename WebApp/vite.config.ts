@@ -5,9 +5,11 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   plugins: [react()],
   server: {
-    // Frontend dev server runs on the default 5173 so the app is served at
-    // http://localhost:5173; API is proxied to the backend on 5000.
+    // Frontend dev server runs on port 5173 so the app is served at
+    // http://localhost:5173; API is proxied to the backend on 5001.
     port: 5173,
+    host: true, // Allow external connections
+    strictPort: true, // Don't increment port if 5173 is taken
     proxy: {
       '/swagger': {
         target: 'http://localhost:5001',

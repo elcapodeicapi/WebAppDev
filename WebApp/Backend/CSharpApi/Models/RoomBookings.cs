@@ -1,5 +1,6 @@
 public class RoomBookings
 {
+    public int Id { get; set; }
     public int RoomId { get; set; }
     public Rooms Room { get; set; } = null!;
     public int UserId { get; set; }

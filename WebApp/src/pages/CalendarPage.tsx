@@ -59,6 +59,8 @@ export default function CalendarPage() {
       } catch (err: any) {
         console.error('Failed to fetch events:', err);
         setError('Failed to load events');
+        // Set empty meetings array on error to allow calendar to render
+        setMeetings([]);
       } finally {
         setLoading(false);
       }
@@ -177,8 +179,11 @@ export default function CalendarPage() {
     setIsAdding(true);
   };
 
+  // Debug: Log state to see what's happening
+  console.log('CalendarPage state:', { loading, error, meetingsCount: meetings.length });
+
   return (
-    <div className="calendar-page-container" style={{ color: '#000' }}>
+    <div className="calendar-page-container" style={{ color: '#000', minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Navbar />
       {error && <div style={{ color: 'red', padding: '1rem' }}>{error}</div>}
       {loading && <div style={{ padding: '1rem' }}>Loading events...</div>}
@@ -227,4 +232,4 @@ export default function CalendarPage() {
       </div>
     </div>
   );
-  }
+}
