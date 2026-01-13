@@ -218,7 +218,15 @@ const ProfilePage: React.FC = () => {
       const raw = window.localStorage.getItem('auth');
       if (raw) {
         const parsed = JSON.parse(raw);
-        parsed.user = { id: res.userId, email: res.email, fullName: res.fullName, username: res.username, role: res.role };
+        parsed.user = {
+          id: res.userId,
+          email: res.email,
+          fullName: res.fullName,
+          username: res.username,
+          phoneNumber: res.phoneNumber,
+          jobTitle: res.jobTitle,
+          role: res.role
+        };
         window.localStorage.setItem('auth', JSON.stringify(parsed));
       }
       window.location.reload();

@@ -67,7 +67,12 @@ export default function MyFriends() {
 
   async function decline(requesterUsername: string) {
     setError(null);
-    setError(`Decline not implemented server-side (pending from ${requesterUsername})`);
+    try {
+      await apiPost<{ username: string }, unknown>('/api/friends/decline', { username: requesterUsername });
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Failed to decline');
+    }
   }
 
   return (

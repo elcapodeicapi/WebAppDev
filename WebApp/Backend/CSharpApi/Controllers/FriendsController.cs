@@ -52,6 +52,28 @@ namespace WebAppDev.AuthApi.Controllers
             return Ok(new { success = true });
         }
 
+        public class FriendDeclineDto { public string Username { get; set; } = string.Empty; }
+
+        [HttpPost("decline")]
+        [SessionRequired]
+        public async Task<ActionResult<object>> Decline([FromBody] FriendDeclineDto dto)
+        {
+            var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized();
+            var userId = (int)userIdObj;
+            if (string.IsNullOrWhiteSpace(dto.Username)) return BadRequest(new { success = false, message = "Username required" });
+
+            var requester = await _db.Users.SingleOrDefaultAsync(u => u.Username == dto.Username);
+            if (requester == null) return NotFound(new { success = false, message = "Requester not found" });
+            var requesterId = requester.Id;
+
+            var fr = await _db.Friendships.SingleOrDefaultAsync(f => f.UserId == requesterId && f.FriendId == userId && f.Status == "Pending");
+            if (fr == null) return NotFound(new { success = false, message = "No pending request" });
+
+            _db.Friendships.Remove(fr);
+            await _db.SaveChangesAsync();
+            return Ok(new { success = true });
+        }
+
         public class FriendInfoDto
         {
             public int Id { get; set; }

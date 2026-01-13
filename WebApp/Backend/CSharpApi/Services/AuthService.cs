@@ -46,6 +46,8 @@ public class AuthService
             Username = user.Username,
             Email = user.Email,
             FullName = user.Name,
+            PhoneNumber = user.PhoneNumber,
+            JobTitle = user.JobTitle,
             Role = user.Role
         };
     }
@@ -84,6 +86,8 @@ public class AuthService
             Username = user.Username,
             Email = user.Email,
             FullName = user.Name,
+            PhoneNumber = user.PhoneNumber,
+            JobTitle = user.JobTitle,
             Role = user.Role,
             SessionId = session.Id
         };
@@ -152,6 +156,8 @@ public class AuthService
             Username = user.Username,
             Email = user.Email,
             FullName = user.Name,
+            PhoneNumber = user.PhoneNumber,
+            JobTitle = user.JobTitle,
             Role = user.Role
         };
     }

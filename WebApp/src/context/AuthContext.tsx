@@ -6,6 +6,8 @@ export type AuthUser = {
   email: string;
   fullName: string;
   username?: string;
+  phoneNumber?: string;
+  jobTitle?: string;
   avatarUrl?: string;
   role: 'Admin' | 'Employee' | string;
 };
@@ -71,7 +73,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const role = (res.role as AuthUser['role']) || 'Employee';
       const sid = res.sessionId || '';
-      const u: AuthUser = { id: res.userId, email: res.email, fullName: res.fullName, username: res.username, role };
+      const u: AuthUser = {
+        id: res.userId,
+        email: res.email,
+        fullName: res.fullName,
+        username: res.username,
+        phoneNumber: (res as any).phoneNumber,
+        jobTitle: (res as any).jobTitle,
+        role
+      };
       setUser(u);
       setSessionId(sid);
       localStorage.setItem('auth', JSON.stringify({ user: u }));
