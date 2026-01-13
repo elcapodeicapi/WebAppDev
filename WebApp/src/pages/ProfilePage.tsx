@@ -4,7 +4,7 @@ import NavBar from '../components/NavBar';
 import '../App.css';
 import '../CalendarPage.css';
 import { useAuth } from '../context/AuthContext';
-import { apiPost, apiGet } from '../lib/api';
+import { apiPost, apiGet, apiDelete } from '../lib/api';
 
 const ProfilePage: React.FC = () => {
   const { user, initializing } = useAuth();
@@ -227,6 +227,18 @@ const ProfilePage: React.FC = () => {
     }
   }
 
+  async function deleteRoomBooking(bookingId: number) {
+    try {
+      await apiDelete(`/api/roombookings/${bookingId}`);
+      setRoomBookings(prev => (prev || []).filter(b => {
+        const id = (b?.Id ?? b?.id) as number | undefined;
+        return id !== bookingId;
+      }));
+    } catch (err: any) {
+      alert(err?.message || 'Failed to delete booking');
+    }
+  }
+
   return (
     <div className="calendar-page-container">
       <NavBar />
@@ -359,9 +371,23 @@ const ProfilePage: React.FC = () => {
                   ) : (
                     <ul style={styles.list}>
                       {roomBookings.map((booking, i) => (
-                        <li key={i} style={{ ...styles.listItem, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', marginBottom: '0.5rem' }}>
-                          <div style={styles.itemHeader}>
-                            Room: {booking.RoomName || booking.roomName || 'Unknown Room'}
+                        <li
+                          key={(booking?.Id ?? booking?.id ?? i) as any}
+                          style={{ ...styles.listItem, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', marginBottom: '0.5rem' }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start' }}>
+                            <div style={styles.itemHeader}>
+                              Room: {booking.RoomName || booking.roomName || 'Unknown Room'}
+                            </div>
+                            {((booking?.Id ?? booking?.id) != null) && (
+                              <button
+                                type="button"
+                                style={styles.deleteBookingButton}
+                                onClick={() => deleteRoomBooking((booking.Id ?? booking.id) as number)}
+                              >
+                                Delete
+                              </button>
+                            )}
                           </div>
                           <div style={styles.itemMeta}>
                             Date: {(booking.BookingDate || booking.bookingDate) ? (() => {
@@ -818,6 +844,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     fontSize: '0.9rem',
     fontWeight: 500,
+  },
+  deleteBookingButton: {
+    padding: '0.25rem 0.6rem',
+    backgroundColor: 'transparent',
+    color: '#dc2626',
+    border: '1px solid #dc2626',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    fontWeight: 500,
+    flexShrink: 0,
+    alignSelf: 'flex-start',
   },
   miniCalendar: {
     borderRadius: '8px',

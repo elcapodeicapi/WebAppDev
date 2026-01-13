@@ -196,6 +196,30 @@ public class RoomBookingsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpDelete("{id:int}")]
+    [SessionRequired]
+    public async Task<ActionResult> DeleteBooking([FromRoute] int id)
+    {
+        var userIdObj = HttpContext.Items["UserId"]; if (userIdObj is null) return Unauthorized(new { message = "Login required" });
+        var userId = (int)userIdObj;
+
+        var booking = await _db.RoomBookings.FirstOrDefaultAsync(rb => rb.Id == id);
+        if (booking == null)
+        {
+            return NotFound(new { message = "Booking not found" });
+        }
+
+        if (booking.UserId != userId)
+        {
+            return Forbid();
+        }
+
+        _db.RoomBookings.Remove(booking);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { success = true, message = "Booking deleted" });
+    }
+
     [HttpGet("available")]
     [SessionRequired]
     public async Task<ActionResult<IEnumerable<object>>> GetAvailableRooms([FromQuery] string date)
