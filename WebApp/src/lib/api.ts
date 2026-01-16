@@ -1,5 +1,3 @@
-// Use a proxied relative path by default so dev server can forward API calls to the backend.
-// In production you can set `VITE_API_BASE_URL` to the full API origin.
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 function isJsonResponse(res: Response): boolean {
