@@ -5,6 +5,7 @@ using WebAppDev.AuthApi.Models;
 using WebAppDev.AuthApi.DTOs;
 using WebAppDev.AuthApi.Filters;
 using WebAppDev.AuthApi.Services;
+using System.Linq;
 
 namespace WebAppDev.AuthApi.Controllers;
 
@@ -196,419 +197,63 @@ public class EventsController : ControllerBase
         return Ok(MapEventToDto(item));
     }
 
-    [HttpPost]
+
+
+
+    [HttpPost("{id}/invite")]
     [SessionRequired]
-    public async Task<ActionResult<Events>> Create([FromBody] CreateEventRequest req)
+    public async Task<IActionResult> SendInvites(int id, [FromBody] InviteRequest request)
     {
         var userIdObj = HttpContext.Items["UserId"];
         if (userIdObj is null) return Unauthorized();
         var userId = (int)userIdObj;
 
-        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var evt = await _db.Events.FindAsync(id);
+        if (evt == null) return NotFound(new { message = "Event not found" });
 
-        DateTime datePart;
-        if (!DateTime.TryParseExact(req.Date, new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" },
-            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out datePart))
-        {
-            return BadRequest(new { message = "Date must be in dd/MM/yyyy format." });
-        }
-
-        TimeSpan timePart = TimeSpan.Zero;
-        if (!string.IsNullOrWhiteSpace(req.StartTime))
-        {
-            if (!DateTime.TryParse(req.StartTime, out var dt))
-            {
-                return BadRequest(new { message = "StartTime could not be parsed (e.g. '9 AM')." });
-            }
-            timePart = dt.TimeOfDay;
-        }
-
-        var startDateTime = datePart.Date + timePart;
-        var endDateTime = startDateTime.AddHours(req.DurationHours);
-
-        int? roomId = req.RoomId;
-        Rooms? roomForBooking = null;
-        if (roomId != null)
-        {
-            roomForBooking = await _db.Rooms.FirstOrDefaultAsync(r => r.Id == roomId.Value);
-            if (roomForBooking == null)
-            {
-                return BadRequest(new { message = "Room not found" });
-            }
-        }
-        else if (!string.IsNullOrWhiteSpace(req.Location))
-        {
-            roomForBooking = await _db.Rooms.FirstOrDefaultAsync(r => r.RoomName == req.Location);
-            if (roomForBooking != null)
-            {
-                roomId = roomForBooking.Id;
-            }
-        }
-
-        SemaphoreSlim? roomLock = null;
-        if (roomId != null)
-        {
-            roomLock = RoomBookingLock.ForRoomDate(roomId.Value, startDateTime.Date);
-            await roomLock.WaitAsync();
-        }
-
-        try
-        {
-            if (roomId != null)
-            {
-                var startTimeOnly = TimeOnly.FromDateTime(startDateTime);
-                var endTimeOnly = TimeOnly.FromDateTime(endDateTime);
-
-                var hasBookingConflict = await _db.RoomBookings.AnyAsync(rb =>
-                    rb.RoomId == roomId.Value &&
-                    rb.BookingDate.Date == startDateTime.Date &&
-                    rb.StartTime < endTimeOnly &&
-                    rb.EndTime > startTimeOnly);
-
-                if (hasBookingConflict)
-                {
-                    return Conflict(new { message = "Room is already booked for that time range." });
-                }
-            }
-
-        if (roomId == null && !string.IsNullOrWhiteSpace(req.Location))
-        {
-            var hasConflict = await _db.Events.AnyAsync(e =>
-                e.Location == req.Location &&
-                e.EventDate < endDateTime &&
-                e.EventDate.AddHours(e.DurationHours) > startDateTime);
-
-            if (hasConflict)
-            {
-                return BadRequest(new { message = "Room is full pick another room" });
-            }
-        }
-
-        int hostUserId = userId;
-        
+        // Check if user is event creator or admin
         var currentUser = await _db.Users.FindAsync(userId);
-        if (currentUser?.Role == "Admin" && !string.IsNullOrWhiteSpace(req.Host))
+        if (evt.CreatedBy != userId && currentUser?.Role != "Admin")
+            return Unauthorized(new { message = "Only event creator or admin can send invitations" });
+
+        if (request?.Usernames == null || !request.Usernames.Any())
+            return BadRequest(new { message = "Usernames are required" });
+
+        var users = await _db.Users
+            .Where(u => request.Usernames.Contains(u.Username))
+            .ToListAsync();
+
+        foreach (var user in users)
         {
+            // Skip the actual host (not necessarily the creator)
             var hostUser = await _db.Users.FirstOrDefaultAsync(u => 
-                u.Name == req.Host || 
-                u.Username == req.Host || 
-                u.Email == req.Host);
-            if (hostUser != null)
+                u.Username == evt.Host || 
+                u.Name == evt.Host);
+            if (hostUser != null && user.Id == hostUser.Id) continue;
+
+            var existingParticipation = await _db.EventParticipations
+                .FirstOrDefaultAsync(p => p.EventId == id && p.UserId == user.Id);
+
+            if (existingParticipation == null)
             {
-                hostUserId = hostUser.Id;
-            }
-        }
-
-        var evt = new Events
-        {
-            Title = req.Title,
-            Description = req.Description,
-            EventDate = startDateTime,
-            DurationHours = req.DurationHours,
-            Host = req.Host,
-            Attendees = req.Attendees,
-            Location = roomForBooking?.RoomName ?? req.Location,
-            CreatedBy = hostUserId
-        };
-
-        _db.Events.Add(evt);
-        await _db.SaveChangesAsync();
-
-        if (evt.CreatedBy > 0)
-        {
-            _db.Set<EventParticipation>().Add(new EventParticipation
-            {
-                EventId = evt.Id,
-                UserId = evt.CreatedBy,
-                Status = "Going"
-            });
-        }
-
-        if (roomId != null && evt.CreatedBy > 0)
-        {
-            var startTimeOnly = TimeOnly.FromDateTime(startDateTime);
-            var endTimeOnly = TimeOnly.FromDateTime(endDateTime);
-
-            var hasBookingConflict = await _db.RoomBookings.AnyAsync(rb =>
-                rb.RoomId == roomId.Value &&
-                rb.BookingDate.Date == startDateTime.Date &&
-                rb.StartTime < endTimeOnly &&
-                rb.EndTime > startTimeOnly);
-
-            if (hasBookingConflict)
-            {
-                return Conflict(new { message = "Room is already booked for that time range." });
-            }
-
-            var attendeeCount = 0;
-            if (!string.IsNullOrWhiteSpace(req.Attendees))
-            {
-                attendeeCount = req.Attendees
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(s => s.Trim())
-                    .Count(s => !string.IsNullOrWhiteSpace(s));
-            }
-
-            var booking = new RoomBookings
-            {
-                RoomId = roomId.Value,
-                UserId = evt.CreatedBy,
-                BookingDate = startDateTime.Date,
-                StartTime = startTimeOnly,
-                EndTime = endTimeOnly,
-                Purpose = $"Event:{evt.Id}:{evt.Title}",
-                NumberOfPeople = attendeeCount + 1
-            };
-            _db.RoomBookings.Add(booking);
-        }
-
-        if (!string.IsNullOrWhiteSpace(req.Attendees))
-        {
-            var usernames = req.Attendees.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(s => s.Trim()).ToArray();
-            if (usernames.Length > 0)
-            {
-                var users = await _db.Users.Where(u => usernames.Contains(u.Username)).ToListAsync();
-                foreach (var u in users)
+                _db.EventParticipations.Add(new EventParticipation
                 {
-                    if (u.Id == evt.CreatedBy) continue;
-                    _db.Set<EventParticipation>().Add(new EventParticipation
-                    {
-                        EventId = evt.Id,
-                        UserId = u.Id,
-                        Status = "Invited"
-                    });
-                }
-            }
-        }
-
-            await _db.SaveChangesAsync();
-            return CreatedAtAction(nameof(Get), new { id = evt.Id }, evt);
-        }
-        finally
-        {
-            if (roomLock != null) roomLock.Release();
-        }
-    }
-
-    [HttpPut("{id}")]
-    [SessionRequired]
-    public async Task<IActionResult> Update(int id, [FromBody] CreateEventRequest req)
-    {
-        var userIdObj = HttpContext.Items["UserId"];
-        if (userIdObj is null) return Unauthorized();
-        var userId = (int)userIdObj;
-
-        if (!ModelState.IsValid) return BadRequest(ModelState);
-
-        var evt = await _db.Events.FindAsync(id);
-        if (evt == null) return NotFound();
-
-        var user = await _db.Users.FindAsync(userId);
-        if (evt.CreatedBy != userId && user?.Role != "Admin")
-            return BadRequest(new { message = "Only the event creator or admin can edit this event" });
-
-        DateTime datePart;
-        if (!DateTime.TryParseExact(req.Date, new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" },
-            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out datePart))
-        {
-            return BadRequest(new { message = "Date must be in dd/MM/yyyy format." });
-        }
-
-        TimeSpan timePart = TimeSpan.Zero;
-        if (!string.IsNullOrWhiteSpace(req.StartTime))
-        {
-            if (!DateTime.TryParse(req.StartTime, out var dt))
-            {
-                return BadRequest(new { message = "StartTime could not be parsed (e.g. '9 AM')." });
-            }
-            timePart = dt.TimeOfDay;
-        }
-
-        var startDateTime = datePart.Date + timePart;
-        var endDateTime = startDateTime.AddHours(req.DurationHours);
-
-        int? roomId = req.RoomId;
-        Rooms? roomForBooking = null;
-        if (roomId != null)
-        {
-            roomForBooking = await _db.Rooms.FirstOrDefaultAsync(r => r.Id == roomId.Value);
-            if (roomForBooking == null)
-            {
-                return BadRequest(new { message = "Room not found" });
-            }
-        }
-        else if (!string.IsNullOrWhiteSpace(req.Location))
-        {
-            roomForBooking = await _db.Rooms.FirstOrDefaultAsync(r => r.RoomName == req.Location);
-            if (roomForBooking != null)
-            {
-                roomId = roomForBooking.Id;
-            }
-        }
-
-        var existingEventBooking = await _db.RoomBookings
-            .FirstOrDefaultAsync(rb => rb.Purpose != null && rb.Purpose.StartsWith($"Event:{id}:") );
-
-        if (roomId != null)
-        {
-            var startTimeOnly = TimeOnly.FromDateTime(startDateTime);
-            var endTimeOnly = TimeOnly.FromDateTime(endDateTime);
-
-            var hasBookingConflict = await _db.RoomBookings.AnyAsync(rb =>
-                rb.RoomId == roomId.Value &&
-                rb.BookingDate.Date == startDateTime.Date &&
-                rb.StartTime < endTimeOnly &&
-                rb.EndTime > startTimeOnly &&
-                (existingEventBooking == null || rb.Id != existingEventBooking.Id));
-
-            if (hasBookingConflict)
-            {
-                return Conflict(new { message = "Room is already booked for that time range." });
-            }
-        }
-
-        if (roomId == null && !string.IsNullOrWhiteSpace(req.Location))
-        {
-            var hasConflict = await _db.Events.AnyAsync(e =>
-                e.Id != id &&
-                e.Location == req.Location &&
-                e.EventDate < endDateTime &&
-                e.EventDate.AddHours(e.DurationHours) > startDateTime);
-
-            if (hasConflict)
-            {
-                return BadRequest(new { message = "Room is full pick another room" });
-            }
-        }
-
-        evt.Title = req.Title;
-        evt.Description = req.Description;
-        evt.EventDate = startDateTime;
-        evt.DurationHours = req.DurationHours;
-        evt.Host = req.Host;
-        evt.Attendees = req.Attendees;
-        evt.Location = roomForBooking?.RoomName ?? req.Location;
-
-        if (roomId != null)
-        {
-            var startTimeOnly = TimeOnly.FromDateTime(startDateTime);
-            var endTimeOnly = TimeOnly.FromDateTime(endDateTime);
-
-            var attendeeCount = 0;
-            if (!string.IsNullOrWhiteSpace(req.Attendees))
-            {
-                attendeeCount = req.Attendees
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(s => s.Trim())
-                    .Count(s => !string.IsNullOrWhiteSpace(s));
-            }
-
-            if (existingEventBooking == null)
-            {
-                _db.RoomBookings.Add(new RoomBookings
-                {
-                    RoomId = roomId.Value,
-                    UserId = evt.CreatedBy,
-                    BookingDate = startDateTime.Date,
-                    StartTime = startTimeOnly,
-                    EndTime = endTimeOnly,
-                    Purpose = $"Event:{evt.Id}:{evt.Title}",
-                    NumberOfPeople = attendeeCount + 1
+                    EventId = id,
+                    UserId = user.Id,
+                    Status = "Invited"
                 });
-            }
-            else
-            {
-                existingEventBooking.RoomId = roomId.Value;
-                existingEventBooking.UserId = evt.CreatedBy;
-                existingEventBooking.BookingDate = startDateTime.Date;
-                existingEventBooking.StartTime = startTimeOnly;
-                existingEventBooking.EndTime = endTimeOnly;
-                existingEventBooking.Purpose = $"Event:{evt.Id}:{evt.Title}";
-                existingEventBooking.NumberOfPeople = attendeeCount + 1;
-                _db.Entry(existingEventBooking).State = EntityState.Modified;
-            }
-        }
-        else if (existingEventBooking != null)
-        {
-            _db.RoomBookings.Remove(existingEventBooking);
-        }
 
-        if (!string.IsNullOrWhiteSpace(req.Attendees))
-        {
-            var usernames = req.Attendees
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(s => s.Trim())
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-
-            if (usernames.Length > 0)
-            {
-                var existingUserIds = await _db.EventParticipations
-                    .Where(p => p.EventId == id)
-                    .Select(p => p.UserId)
-                    .ToListAsync();
-
-                var usersToInvite = await _db.Users
-                    .Where(u => usernames.Contains(u.Username))
-                    .Select(u => new { u.Id, u.Username })
-                    .ToListAsync();
-
-                foreach (var u in usersToInvite)
-                {
-                    if (existingUserIds.Contains(u.Id)) continue;
-
-                    if (u.Id == evt.CreatedBy) continue;
-
-                    _db.EventParticipations.Add(new EventParticipation
-                    {
-                        EventId = id,
-                        UserId = u.Id,
-                        Status = "Invited"
-                    });
-                }
+                // Don't add user to Attendees string yet - only when they accept
             }
         }
 
-        _db.Entry(evt).State = EntityState.Modified;
-        try
-        {
-            await _db.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!await _db.Events.AnyAsync(e => e.Id == id)) return NotFound();
-            throw;
-        }
-        return NoContent();
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Invitations sent successfully" });
     }
 
-    [HttpDelete("{id}")]
-    [SessionRequired]
-    public async Task<IActionResult> Delete(int id)
+    public class InviteRequest
     {
-        var userIdObj = HttpContext.Items["UserId"];
-        if (userIdObj is null) return Unauthorized();
-        var userId = (int)userIdObj;
-        
-        var evt = await _db.Events.FindAsync(id);
-        if (evt == null) return NotFound();
-
-        var user = await _db.Users.FindAsync(userId);
-        if (evt.CreatedBy != userId && user?.Role != "Admin")
-            return BadRequest(new { message = "Only the event creator or admin can delete this event" });
-
-        var existingEventBooking = await _db.RoomBookings
-            .FirstOrDefaultAsync(rb => rb.Purpose != null && rb.Purpose.StartsWith($"Event:{id}:") );
-        if (existingEventBooking != null)
-        {
-            _db.RoomBookings.Remove(existingEventBooking);
-        }
-
-        _db.Events.Remove(evt);
-        await _db.SaveChangesAsync();
-        return NoContent();
+        public List<string> Usernames { get; set; } = new();
     }
 
     [HttpPost("{id}/accept")]
@@ -619,8 +264,13 @@ public class EventsController : ControllerBase
         if (userIdObj is null) return Unauthorized();
         var userId = (int)userIdObj;
 
+        Console.WriteLine($"=== ACCEPT INVITATION DEBUG ===");
+        Console.WriteLine($"EventId: {id}, UserId: {userId}");
+
         var evt = await _db.Events.FindAsync(id);
         if (evt == null) return NotFound(new { message = "Event not found" });
+
+        Console.WriteLine($"Event found: {evt.Title}, Current Attendees: '{evt.Attendees}'");
 
         var participation = await _db.EventParticipations
             .FirstOrDefaultAsync(p => p.EventId == id && p.UserId == userId);
@@ -628,11 +278,56 @@ public class EventsController : ControllerBase
         if (participation == null)
             return NotFound(new { message = "You are not invited to this event" });
 
+        Console.WriteLine($"Participation found, current status: {participation.Status}");
+
         if (participation.Status == "Going")
             return BadRequest(new { message = "You already accepted this invitation" });
 
         participation.Status = "Going";
+        Console.WriteLine($"Status updated to 'Going'");
+        
+        // Add user to Attendees string now that they've accepted
+        var user = await _db.Users.FindAsync(userId);
+        if (user != null)
+        {
+            Console.WriteLine($"User found: {user.Username}");
+            // Reload the event to get the latest state
+            var currentEvent = await _db.Events.FindAsync(id);
+            if (currentEvent != null)
+            {
+                var currentAttendees = currentEvent.Attendees?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>();
+                Console.WriteLine($"Current attendees list: [{string.Join(", ", currentAttendees)}]");
+                Console.WriteLine($"User '{user.Username}' in attendees: {currentAttendees.Contains(user.Username)}");
+                
+                if (!currentAttendees.Contains(user.Username))
+                {
+                    currentAttendees.Add(user.Username);
+                    var newAttendeesString = string.Join(",", currentAttendees);
+                    Console.WriteLine($"New attendees string: '{newAttendeesString}'");
+                    
+                    // Update the event's attendees string
+                    currentEvent.Attendees = newAttendeesString;
+                    _db.Events.Update(currentEvent);
+                    Console.WriteLine($"Event updated in context");
+                }
+                else
+                {
+                    Console.WriteLine($"User '{user.Username}' already in attendees list");
+                }
+            }
+            else
+            {
+                Console.WriteLine("CurrentEvent is null");
+            }
+        }
+        else
+        {
+            Console.WriteLine("User is null");
+        }
+        
         await _db.SaveChangesAsync();
+        Console.WriteLine($"Changes saved to database");
+        Console.WriteLine($"===============================");
 
         return Ok(new { message = "Invitation accepted" });
     }
@@ -656,6 +351,24 @@ public class EventsController : ControllerBase
 
         if (participation == null)
             return NotFound(new { message = "You are not part of this event" });
+
+        // Remove user from Attendees string
+        var user = await _db.Users.FindAsync(userId);
+        if (user != null)
+        {
+            // Get current event data
+            var currentEvent = await _db.Events.FindAsync(id);
+            if (currentEvent != null && !string.IsNullOrEmpty(currentEvent.Attendees))
+            {
+                var attendeesList = currentEvent.Attendees.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+                attendeesList.Remove(user.Username);
+                var newAttendeesString = string.Join(",", attendeesList);
+                
+                // Update the event's attendees string
+                currentEvent.Attendees = newAttendeesString;
+                _db.Events.Update(currentEvent);
+            }
+        }
 
         _db.EventParticipations.Remove(participation);
         await _db.SaveChangesAsync();

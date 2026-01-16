@@ -78,7 +78,7 @@ h1 {
   background-color: #b2ebf2;
   cursor: pointer;
 
-  /* 👇 BELANGRIJK: meerdere events onder elkaar */
+  /* BELANGRIJK: meerdere events onder elkaar */
   display: flex;
   flex-direction: column;
   gap: 4px;

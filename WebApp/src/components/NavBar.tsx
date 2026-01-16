@@ -3,7 +3,7 @@ import logo from '../assets/Cavent logo.png';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { apiGet } from '../lib/api';
+import Notifications from './Notifications';
 
 export default function Navbar() {
   const location = useLocation();
@@ -11,55 +11,137 @@ export default function Navbar() {
   const { user, logout } = useAuth();
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [tomorrowEvents, setTomorrowEvents] = useState<Array<{ id: number; title: string; eventDate: string; location?: string }>>([]);
-  const [inviteCount, setInviteCount] = useState(0);
-
-  function dateKeyLocal(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    async function loadNotifications() {
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    async function loadNotificationSummary() {
       if (!user) {
-        setTomorrowEvents([]);
-        setInviteCount(0);
+        setNotifications([]);
+        setNotificationCount(0);
         return;
       }
 
       try {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowKey = dateKeyLocal(tomorrow);
-
-        const mine = await apiGet<any[]>('/api/events/mine');
-        const mineTomorrow = (mine || [])
-          .filter(e => {
-            const dt = new Date(e.eventDate);
-            return dateKeyLocal(dt) === tomorrowKey;
-          })
-          .map(e => ({ id: e.id, title: e.title, eventDate: e.eventDate, location: e.location }));
-
-        const invited = await apiGet<any[]>('/api/events/invited');
-
+        const response = await fetch('/api/notifications/summary', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Request failed with ${response.status}`);
+        }
+        
+        const summary = await response.json();
+        
         if (cancelled) return;
-        setTomorrowEvents(mineTomorrow);
-        setInviteCount((invited || []).length);
+        setNotificationCount(summary?.totalCount || 0);
       } catch {
         if (cancelled) return;
-        setTomorrowEvents([]);
-        setInviteCount(0);
+        setNotificationCount(0);
       }
     }
 
-    loadNotifications();
+    loadNotificationSummary();
+    
+    // Check for new notifications every 30 seconds
+    if (user) {
+      intervalId = setInterval(loadNotificationSummary, 30000);
+    }
+    
     return () => {
       cancelled = true;
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
   }, [user]);
+
+  async function loadNotifications() {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Request failed with ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      setNotifications([]);
+    }
+  }
+
+  async function acceptInvitation(eventId: number) {
+    try {
+      const response = await fetch(`/api/events/${eventId}/accept`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to accept invitation: ${response.status}`);
+      }
+      
+      // Reload notifications after accepting
+      await loadNotifications();
+      // Reload summary to update count
+      const summaryResponse = await fetch('/api/notifications/summary', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (summaryResponse.ok) {
+        const summary = await summaryResponse.json();
+        setNotificationCount(summary?.totalCount || 0);
+      }
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      alert('Failed to accept invitation');
+    }
+  }
+
+  async function declineInvitation(eventId: number) {
+    try {
+      const response = await fetch(`/api/events/${eventId}/decline`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to decline invitation: ${response.status}`);
+      }
+      
+      // Reload notifications after declining
+      await loadNotifications();
+      // Reload summary to update count
+      const summaryResponse = await fetch('/api/notifications/summary', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (summaryResponse.ok) {
+        const summary = await summaryResponse.json();
+        setNotificationCount(summary?.totalCount || 0);
+      }
+    } catch (error) {
+      console.error('Error declining invitation:', error);
+      alert('Failed to decline invitation');
+    }
+  }
+
+  useEffect(() => {
+    if (notificationsOpen && user) {
+      loadNotifications();
+    }
+  }, [notificationsOpen, user]);
 
   function getInitials(text: string) {
     const cleaned = (text || '').trim();
@@ -91,7 +173,6 @@ export default function Navbar() {
         {user?.role === 'Admin' ? (
           <>
             <Link to="/dashboard">Dashboard</Link>
-            <Link to="/events">Events</Link>
           </>
         ) : (
           <>
@@ -123,81 +204,17 @@ export default function Navbar() {
                   onClick={() => setNotificationsOpen(o => !o)}
                   aria-label="Notifications"
                 >
-                  Notifications ({tomorrowEvents.length + inviteCount})
+                  Notifications ({notificationCount})
                 </button>
 
                 {notificationsOpen && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 'calc(100% + 8px)',
-                      width: 320,
-                      background: '#fff',
-                      border: '1px solid #ddd',
-                      borderRadius: 8,
-                      padding: 12,
-                      zIndex: 50,
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, marginBottom: 8 }}>Your notifications</div>
-
-                    <div style={{ marginBottom: 10 }}>
-                      <div style={{ fontWeight: 600 }}>Tomorrow</div>
-                      {tomorrowEvents.length === 0 ? (
-                        <div style={{ color: '#666' }}>No events tomorrow.</div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                          {tomorrowEvents.map(e => (
-                            <button
-                              key={e.id}
-                              type="button"
-                              onClick={() => {
-                                setNotificationsOpen(false);
-                                navigate('/calendar');
-                              }}
-                              style={{
-                                textAlign: 'left',
-                                background: 'transparent',
-                                border: 'none',
-                                padding: 0,
-                                cursor: 'pointer',
-                                color: '#333',
-                              }}
-                            >
-                              {e.title}{e.location ? ` (${e.location})` : ''}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <div style={{ fontWeight: 600 }}>Invitations</div>
-                      {inviteCount === 0 ? (
-                        <div style={{ color: '#666' }}>No pending invitations.</div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNotificationsOpen(false);
-                            navigate('/invitations');
-                          }}
-                          style={{
-                            marginTop: 4,
-                            textAlign: 'left',
-                            background: 'transparent',
-                            border: 'none',
-                            padding: 0,
-                            cursor: 'pointer',
-                            color: '#333',
-                          }}
-                        >
-                          You have {inviteCount} pending invitation{inviteCount === 1 ? '' : 's'}.
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <Notifications
+                    notifications={notifications}
+                    totalCount={notificationCount}
+                    onClose={() => setNotificationsOpen(false)}
+                    onAcceptInvitation={acceptInvitation}
+                    onDeclineInvitation={declineInvitation}
+                  />
                 )}
               </div>
             )}

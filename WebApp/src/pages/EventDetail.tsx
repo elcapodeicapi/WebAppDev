@@ -92,7 +92,7 @@ export default function EventDetail() {
 
     try {
       setIsDeleting(true);
-      await apiDelete(`/api/events/${id}`);
+      await apiDelete(`/api/calendarevents/${id}`);
       alert('Event deleted successfully');
       navigate('/home');
     } catch (err: any) {

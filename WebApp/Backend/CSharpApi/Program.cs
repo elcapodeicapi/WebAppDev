@@ -38,6 +38,9 @@ builder.Services.AddCors(options =>
 var connectionString = builder.Configuration.GetConnectionString("Default") ?? "Data Source=WebAPI.db";
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<CalendarEventService>();
+builder.Services.AddScoped<AdminService>();
+builder.Services.AddScoped<NotificationService>();
 
 var app = builder.Build();
 

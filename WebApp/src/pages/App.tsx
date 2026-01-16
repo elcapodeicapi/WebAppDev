@@ -5,7 +5,7 @@ import RegisterPage from './RegisterPage';
 import CalenderPage from './CalendarPage';
 import RoomBookingPage from './RoomBookingPage';
 import OfficeAttendancePage from './OfficeAttendancePage';
-import Dashboard from './Dashboard';
+import AdminDashboard from './AdminDashboard';
 import ProfilePage from './ProfilePage';
 import EventsPage from './EventsPage';
 import EventDetail from './EventDetail';
@@ -26,7 +26,7 @@ function App() {
             path="/dashboard"
             element={
               <ProtectedRoute adminOnly>
-                <Dashboard />
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />

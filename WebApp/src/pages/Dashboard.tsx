@@ -3,523 +3,233 @@ import { API_BASE_URL } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import NavBar from '../components/NavBar';
 import Spinner from '../components/Spinner';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { AddEditEventForm } from '../components/AddEditEventForm';
 import '../AdminDashboard.css';
 
-interface Participant {
-  id: number;
-  name: string;
-  username: string;
-  status: string;
-}
-
-interface AdminEvent {
-  id: number;
-  title: string;
-  description: string;
-  eventDate: string;
-  durationHours: number;
-  host: string;
-  location: string;
-  createdByUser: string;
-  participantCount: number;
-  participants: Participant[];
-}
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  username: string;
-  role: string;
-}
-
-const Dashboard = () => {
-  const { user } = useAuth();
-  const [events, setEvents] = useState<AdminEvent[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+export default function Dashboard() {
+  const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'users'>('overview');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingEventId, setEditingEventId] = useState<number | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteEventId, setDeleteEventId] = useState<number | null>(null);
-  const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
-  const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false);
-  const [showHostDropdown, setShowHostDropdown] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    date: '',
-    startTime: '',
-    durationHours: 1,
-    host: '',
-    location: '',
-    attendees: '',
-  });
+  const [error, setError] = useState('');
+  
+  const [showForm, setShowForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any | undefined>(undefined);
+  const [isAdding, setIsAdding] = useState(true);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  async function fetchData() {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const [eventsRes, usersRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/events/admin/all`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/users`, { credentials: 'include' }),
-      ]);
+      setError('');
+      
+      // Fetch events only
+      const eventsResponse = await fetch(`${API_BASE_URL}/api/events/mine`, { credentials: 'include' });
 
-      if (!eventsRes.ok || !usersRes.ok) {
+      if (!eventsResponse.ok) {
         throw new Error('Failed to fetch data');
       }
 
-      const eventsData = await eventsRes.json();
-      const usersData = await usersRes.json();
-
+      const eventsData = await eventsResponse.json();
       setEvents(eventsData);
-      setUsers(usersData);
+      
     } catch (err: any) {
+      console.error('Dashboard fetch error:', err);
       setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-    });
   };
 
-  const formatDateForInput = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toISOString().split('T')[0];
+  const handleCreateEvent = () => {
+    setEditingEvent(undefined);
+    setIsAdding(true);
+    setShowForm(true);
+    setFormError('');
   };
 
-  const formatTimeForInput = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toTimeString().slice(0, 5);
+  const handleEditEvent = (event: any) => {
+    setEditingEvent(event);
+    setIsAdding(false);
+    setShowForm(true);
+    setFormError('');
   };
 
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      description: '',
-      date: '',
-      startTime: '',
-      durationHours: 1,
-      host: '',
-      location: '',
-      attendees: '',
-    });
-    setEditingEventId(null);
+  const handleCancelForm = () => {
+    setShowForm(false);
+    setEditingEvent(undefined);
+    setFormError('');
   };
 
-  const startCreateEvent = () => {
-    resetForm();
-    setShowCreateForm(true);
-  };
-
-  const startEditEvent = (event: AdminEvent) => {
-    const attendeeUsernames = event.participants
-      .filter(p => p.status !== 'Host')
-      .map(p => p.username)
-      .join(',');
-    const hostParticipant = event.participants.find(p => p.status === 'Host');
-    
-    setEditingEventId(event.id);
-    setFormData({
-      title: event.title,
-      description: event.description,
-      date: formatDateForInput(event.eventDate),
-      startTime: formatTimeForInput(event.eventDate),
-      durationHours: event.durationHours,
-      host: hostParticipant?.name || event.host,
-      location: event.location,
-      attendees: attendeeUsernames,
-    });
-    setShowCreateForm(true);
-  };
-
-  const handleCreateOrUpdateEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEventSubmit = async (formData: any) => {
     try {
-      const payload = {
-        title: formData.title,
-        description: formData.description,
-        date: formData.date,
-        startTime: formData.startTime,
-        durationHours: parseInt(formData.durationHours.toString()),
-        host: formData.host,
-        location: formData.location,
-        attendees: formData.attendees,
-      };
+      setFormLoading(true);
+      setFormError('');
 
-      const url = editingEventId
-        ? `${API_BASE_URL}/api/events/${editingEventId}`
-        : `${API_BASE_URL}/api/events`;
+      const url = editingEvent?.id
+        ? `${API_BASE_URL}/api/calendarevents/${editingEvent.id}`
+        : `${API_BASE_URL}/api/calendarevents`;
 
-      const method = editingEventId ? 'PUT' : 'POST';
+      const method = editingEvent?.id ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(formData)
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to ${editingEventId ? 'update' : 'create'} event`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to save event');
       }
 
-      setShowCreateForm(false);
-      resetForm();
       await fetchData();
+      handleCancelForm();
+      
     } catch (err: any) {
-      setError(err.message || `Failed to ${editingEventId ? 'update' : 'create'} event`);
+      console.error('Event submit error:', err);
+      setFormError(err.message || 'Failed to save event');
+    } finally {
+      setFormLoading(false);
     }
   };
 
-  const handleDeleteEvent = async (id: number) => {
+  const handleDeleteEvent = async (id: string | number) => {
+    if (!window.confirm('Are you sure you want to delete this event?')) {
+      return;
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/events/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/calendarevents/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
+        credentials: 'include'
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete event');
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to delete event');
       }
-
-      setShowDeleteConfirm(false);
-      setDeleteEventId(null);
       await fetchData();
+      
     } catch (err: any) {
+      console.error('Delete error:', err);
       setError(err.message || 'Failed to delete event');
-      setShowDeleteConfirm(false);
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (deleteEventId) {
-      await handleDeleteEvent(deleteEventId);
-    }
-  };
+  if (loading) {
+    return (
+      <>
+        <NavBar />
+        <div className="container mt-4 text-center">
+          <Spinner />
+        </div>
+      </>
+    );
+  }
 
-  if (loading) return <Spinner />;
+  if (error && !showForm) {
+    return (
+      <>
+        <NavBar />
+        <div className="container mt-4">
+          <div className="alert alert-danger" role="alert">
+            {error}
+            <button 
+              className="btn btn-outline-primary btn-sm ms-3"
+              onClick={fetchData}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
-    <div className="admin-dashboard">
+    <>
       <NavBar />
-
-      <div className="dashboard-content">
-        <h1>Admin Dashboard</h1>
-        <p>Welcome {user?.fullName}</p>
-
-        {error && <div className="error-message">{error}</div>}
-
-        <div className="stats">
-          <div className="stat">
-            <div className="stat-number">{events.length}</div>
-            <div className="stat-label">Total Events</div>
-          </div>
-          <div className="stat">
-            <div className="stat-number">{users.length}</div>
-            <div className="stat-label">Total Users</div>
-          </div>
-        </div>
-
-        <div className="tabs">
-          <button
-            className={activeTab === 'events' ? 'tab-btn active' : 'tab-btn'}
-            onClick={() => setActiveTab('events')}
+      <div className="container mt-4">
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h2>My Events</h2>
+          <button 
+            className="btn btn-primary"
+            onClick={handleCreateEvent}
           >
-            Events
-          </button>
-          <button
-            className={activeTab === 'users' ? 'tab-btn active' : 'tab-btn'}
-            onClick={() => setActiveTab('users')}
-          >
-            Users
+            + Add New Event
           </button>
         </div>
 
-        <div className="tab-content">
-          {activeTab === 'overview' && (
-            <div>
-              <h2>Recent Events</h2>
-              {events.length === 0 ? (
-                <p>No events</p>
-              ) : (
-                <div className="event-list">
-                  {events.slice(0, 5).map((event) => (
-                    <div key={event.id} className="event-row">
-                      <div>
-                        <strong>{event.title}</strong><br />
-                        {formatDate(event.eventDate)} | {event.location}
-                      </div>
-                      <div>{event.participantCount} attendees</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+        {error && (
+          <div className="alert alert-danger mb-4" role="alert">
+            {error}
+          </div>
+        )}
 
-          {activeTab === 'events' && (
-            <div>
-              <div className="header-with-btn">
-                <h2>All Events</h2>
-                <button className="btn-small" onClick={() => {
-                  resetForm();
-                  startCreateEvent();
-                }}>
-                  {showCreateForm ? 'Close' : 'Create Event'}
-                </button>
+        {showForm && (
+          <AddEditEventForm
+            event={editingEvent}
+            isAdding={isAdding}
+            onSave={() => handleEventSubmit}
+            onCancel={handleCancelForm}
+            onDelete={handleDeleteEvent}
+            isLoading={formLoading}
+            error={formError}
+          />
+        )}
+
+        {!showForm && (
+          <div className="row">
+            {events.length === 0 ? (
+              <div className="col-12 text-center py-5">
+                <h4 className="text-muted">No events found</h4>
+                <p className="text-muted">Create your first event to get started!</p>
               </div>
-
-              {showCreateForm && (
-                <div className="form-box">
-                  <h3>{editingEventId ? 'Edit Event' : 'New Event'}</h3>
-                  <form onSubmit={handleCreateOrUpdateEvent}>
-                    <input
-                      type="text"
-                      placeholder="Title"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      required
-                    />
-                    <textarea
-                      placeholder="Description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    />
-                    <input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      required
-                    />
-                    <input
-                      type="time"
-                      value={formData.startTime}
-                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Duration (hours)"
-                      min="1"
-                      value={formData.durationHours}
-                      onChange={(e) => setFormData({ ...formData, durationHours: parseInt(e.target.value) })}
-                    />
-                    <div className="custom-dropdown">
-                      <button
-                        type="button"
-                        className="dropdown-trigger"
-                        onClick={() => setShowHostDropdown(!showHostDropdown)}
-                      >
-                        Select Host
-                      </button>
-                      {showHostDropdown && (
-                        <div className="dropdown-menu">
-                          {users.map((u) => (
-                            <label key={u.id} className="dropdown-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={formData.host === u.name}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setFormData({ ...formData, host: u.name });
-                                    setShowHostDropdown(false);
-                                  } else {
-                                    setFormData({ ...formData, host: '' });
-                                  }
-                                }}
-                              />
-                              <span>{u.name} (@{u.username})</span>
-                            </label>
-                          ))}
-                        </div>
+            ) : (
+              events.map((event) => (
+                <div key={event.id} className="col-md-6 col-lg-4 mb-4">
+                  <div className="card h-100">
+                    <div className="card-body">
+                      <h5 className="card-title">{event.title}</h5>
+                      <p className="card-text">
+                        <strong>Date:</strong> {event.date}<br />
+                        <strong>Time:</strong> {event.startTime}<br />
+                        <strong>Duration:</strong> {event.durationHours} hours<br />
+                        <strong>Location:</strong> {event.location}<br />
+                        <strong>Host:</strong> {event.host || 'You'}
+                      </p>
+                      {event.attendees && (
+                        <p className="card-text">
+                          <strong>Attendees:</strong> {event.attendees}
+                        </p>
                       )}
                     </div>
-                    <div className="custom-dropdown">
-                      <button
-                        type="button"
-                        className="dropdown-trigger"
-                        onClick={() => setShowAttendeeDropdown(!showAttendeeDropdown)}
+                    <div className="card-footer d-flex gap-2">
+                      <button 
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={() => handleEditEvent(event)}
                       >
-                        Select Attendees
+                        Edit
                       </button>
-                      {showAttendeeDropdown && (
-                        <div className="dropdown-menu">
-                          {users.map((u) => (
-                            <label key={u.id} className="dropdown-checkbox">
-                              <input
-                                type="checkbox"
-                                value={u.username}
-                                checked={formData.attendees.split(',').filter(a => a.trim()).includes(u.username)}
-                                onChange={(e) => {
-                                  const attendeeList = formData.attendees.split(',').filter(a => a.trim());
-                                  if (e.target.checked) {
-                                    attendeeList.push(u.username);
-                                  } else {
-                                    const idx = attendeeList.indexOf(u.username);
-                                    if (idx > -1) attendeeList.splice(idx, 1);
-                                  }
-                                  setFormData({ ...formData, attendees: attendeeList.join(',') });
-                                }}
-                              />
-                              <span>{u.name} (@{u.username})</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Location"
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    />
-                    <div className="form-buttons">
-                      <button type="submit" className="btn-submit">
-                        {editingEventId ? 'Update' : 'Create'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-cancel"
-                        onClick={() => {
-                          setShowCreateForm(false);
-                          resetForm();
-                        }}
+                      <button 
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => handleDeleteEvent(event.id!)}
                       >
-                        Cancel
+                        Delete
                       </button>
                     </div>
-                  </form>
-                </div>
-              )}
-
-              <table className="simple-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Date</th>
-                    <th>Location</th>
-                    <th>Host</th>
-                    <th>Attendees</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {events.map((event) => (
-                    <tr key={event.id}>
-                      <td>{event.title}</td>
-                      <td>{formatDate(event.eventDate)}</td>
-                      <td>{event.location}</td>
-                      <td>{event.host}</td>
-                      <td>
-                        <button
-                          className="btn-count"
-                          onClick={() => setExpandedEvent(expandedEvent === event.id ? null : event.id)}
-                        >
-                          {event.participantCount}
-                        </button>
-                      </td>
-                      <td className="action-cell">
-                        <button
-                          className="btn-edit"
-                          onClick={() => startEditEvent(event)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn-delete"
-                          onClick={() => {
-                            setDeleteEventId(event.id);
-                            setShowDeleteConfirm(true);
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {expandedEvent && (
-                <div className="modal-overlay" onClick={() => setExpandedEvent(null)}>
-                  <div className="modal" onClick={(e) => e.stopPropagation()}>
-                    <h3>Attendees</h3>
-                    <div className="attendees-list">
-                      {events
-                        .find((e) => e.id === expandedEvent)
-                        ?.participants.map((p) => (
-                          <div key={p.id} className="attendee-row">
-                            <div>{p.name}</div>
-                            <div className="status-badge">{p.status}</div>
-                          </div>
-                        ))}
-                    </div>
-                    <button className="btn-cancel" onClick={() => setExpandedEvent(null)}>
-                      Close
-                    </button>
                   </div>
                 </div>
-              )}
-
-              <ConfirmDialog
-                isOpen={showDeleteConfirm}
-                title="Delete Event"
-                message="Are you sure you want to delete this event? This action cannot be undone."
-                confirmText="Delete"
-                cancelText="Cancel"
-                onConfirm={handleConfirmDelete}
-                onCancel={() => {
-                  setShowDeleteConfirm(false);
-                  setDeleteEventId(null);
-                }}
-                isLoading={false}
-              />
-            </div>
-          )}
-
-          {activeTab === 'users' && (
-            <div>
-              <h2>All Users</h2>
-              <table className="simple-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id}>
-                      <td>{u.name}</td>
-                      <td>{u.username}</td>
-                      <td>{u.email}</td>
-                      <td>{u.role}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
-};
-
-export default Dashboard;
+}

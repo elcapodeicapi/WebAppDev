@@ -89,6 +89,61 @@ export default function RoomBookingPage() {
       return;
     }
 
+    // Check for event conflicts in the same room and time
+    try {
+      console.log('=== ROOM BOOKING - CHECKING EVENT CONFLICTS ===');
+      const eventsUrl = '/api/events';
+      const eventsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}${eventsUrl}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      if (eventsResponse.ok) {
+        const events = await eventsResponse.json();
+        console.log('Events response:', events);
+        
+        // Filter events for the same date and room
+        const sameDateEvents = events.filter((event: any) => {
+          const eventDate = new Date(event.eventDate);
+          return eventDate.toDateString() === new Date(form.date).toDateString() && 
+                 event.location && event.location.toString() === form.roomId;
+        });
+        
+        console.log('Events on same date and room:', sameDateEvents);
+        
+        // Parse booking time
+        const [bookingHour, bookingMinute] = form.startTime.split(':').map(Number);
+        const bookingEndHour = bookingHour + parseInt(form.durationHours);
+        
+        const hasEventConflict = sameDateEvents.some((event: any) => {
+          const eventDate = new Date(event.eventDate);
+          const eventStartHourFromDb = eventDate.getHours();
+          const eventDuration = event.durationHours || 1;
+          const eventEndHourFromDb = eventStartHourFromDb + eventDuration;
+          
+          // Check for time overlap
+          const hasOverlap = (bookingHour < eventEndHourFromDb) && (bookingEndHour > eventStartHourFromDb);
+          
+          if (hasOverlap) {
+            console.log('Found conflicting event:', event.title, 'at', event.eventDate);
+          }
+          
+          return hasOverlap;
+        });
+        
+        if (hasEventConflict) {
+          setError('The selected room is already booked for an event at that time. Please choose a different room or time.');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking event conflicts:', error);
+      // Continue with booking if event check fails
+    }
+
     setSubmitting(true);
     try {
       const bookingPayload = {

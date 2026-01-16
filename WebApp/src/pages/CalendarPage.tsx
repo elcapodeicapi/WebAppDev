@@ -134,7 +134,7 @@ export default function CalendarPage() {
     if (!deleteEventId) return;
     
     try {
-      await apiDelete(`/api/events/${deleteEventId}`);
+      await apiDelete(`/api/calendarevents/${deleteEventId}`);
       const response = await apiGet<any[]>('/api/events/mine');
       const mapped = response.map((evt: any) => {
         const eventDateTime = new Date(evt.eventDate);
@@ -210,10 +210,9 @@ export default function CalendarPage() {
       });
       setMeetings(mapped);
       setSelectedMeeting(null);
-      alert('You have left the event');
     } catch (err: any) {
       console.error('Failed to leave event:', err);
-      alert('Failed to leave event: ' + err.message);
+      // Don't show alert here - backend already shows success message
     } finally {
       setShowLeaveConfirm(false);
       setLeaveEventId(null);

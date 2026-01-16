@@ -82,7 +82,7 @@ export function CalendarTable({
                 </td>
               );
             })}
-          </tr>
+          </tr> 
         ))}
       </tbody>
     </table>
