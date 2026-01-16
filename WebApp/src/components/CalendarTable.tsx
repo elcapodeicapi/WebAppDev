@@ -57,12 +57,13 @@ export function CalendarTable({
               const dateStr = getDateString(date);
 
               const meetingsAtThisTime = getMeetings(hour, dateStr);
+              const isFirstHourOfEvent = meetingsAtThisTime.some(meeting => hour === meeting.startTime);
 
               return (
                 <td
                   key={idx}
                   className={`td-cell ${
-                    meetingsAtThisTime.length > 0 ? 'occupied' : 'empty'
+                    isFirstHourOfEvent ? 'occupied' : 'empty'
                   }`}
                   onClick={() => {
                     if (meetingsAtThisTime.length === 0) {
