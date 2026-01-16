@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../lib/api';
-import { useAuth } from '../context/AuthContext';
 import NavBar from '../components/NavBar';
 import Spinner from '../components/Spinner';
 import { AddEditEventForm } from '../components/AddEditEventForm';
@@ -14,8 +13,6 @@ export default function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any | undefined>(undefined);
   const [isAdding, setIsAdding] = useState(true);
-  const [formLoading, setFormLoading] = useState(false);
-  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -48,60 +45,22 @@ export default function Dashboard() {
     setEditingEvent(undefined);
     setIsAdding(true);
     setShowForm(true);
-    setFormError('');
   };
 
   const handleEditEvent = (event: any) => {
     setEditingEvent(event);
     setIsAdding(false);
     setShowForm(true);
-    setFormError('');
   };
 
   const handleCancelForm = () => {
     setShowForm(false);
     setEditingEvent(undefined);
-    setFormError('');
-  };
-
-  const handleEventSubmit = async (formData: any) => {
-    try {
-      setFormLoading(true);
-      setFormError('');
-
-      const url = editingEvent?.id
-        ? `${API_BASE_URL}/api/calendarevents/${editingEvent.id}`
-        : `${API_BASE_URL}/api/calendarevents`;
-
-      const method = editingEvent?.id ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || errorData.message || 'Failed to save event');
-      }
-
-      await fetchData();
-      handleCancelForm();
-      
-    } catch (err: any) {
-      console.error('Event submit error:', err);
-      setFormError(err.message || 'Failed to save event');
-    } finally {
-      setFormLoading(false);
-    }
   };
 
   const handleDeleteEvent = async (id: string | number) => {
-    if (!window.confirm('Are you sure you want to delete this event?')) {
-      return;
-    }
+    // If delete is initiated from AddEditEventForm, it already shows a confirmation dialog.
+    if (!showForm && !window.confirm('Are you sure you want to delete this event?')) return;
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/calendarevents/${id}`, {
@@ -114,6 +73,11 @@ export default function Dashboard() {
         throw new Error(errorData.error || errorData.message || 'Failed to delete event');
       }
       await fetchData();
+
+      // If we deleted the event we were editing, close the form.
+      if (showForm && editingEvent?.id?.toString?.() === id?.toString?.()) {
+        handleCancelForm();
+      }
       
     } catch (err: any) {
       console.error('Delete error:', err);
@@ -175,11 +139,13 @@ export default function Dashboard() {
           <AddEditEventForm
             event={editingEvent}
             isAdding={isAdding}
-            onSave={() => handleEventSubmit}
+            onSave={() => {
+              void fetchData();
+              handleCancelForm();
+            }}
             onCancel={handleCancelForm}
             onDelete={handleDeleteEvent}
-            isLoading={formLoading}
-            error={formError}
+            error={''}
           />
         )}
 

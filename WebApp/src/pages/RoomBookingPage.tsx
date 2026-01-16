@@ -115,7 +115,7 @@ export default function RoomBookingPage() {
         console.log('Events on same date and room:', sameDateEvents);
         
         // Parse booking time
-        const [bookingHour, bookingMinute] = form.startTime.split(':').map(Number);
+        const [bookingHour] = form.startTime.split(':').map(Number);
         const bookingEndHour = bookingHour + parseInt(form.durationHours);
         
         const hasEventConflict = sameDateEvents.some((event: any) => {

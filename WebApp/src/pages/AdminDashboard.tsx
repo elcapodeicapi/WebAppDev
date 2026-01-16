@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_BASE_URL, apiGet, apiDelete } from '../lib/api';
-import { adminApiGet, adminApiPut, adminApiDelete } from '../lib/adminApi';
+import { API_BASE_URL } from '../lib/api';
 import NavBar from '../components/NavBar';
 import Spinner from '../components/Spinner';
 import { AddEditEventForm } from '../components/AddEditEventForm';
