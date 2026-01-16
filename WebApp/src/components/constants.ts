@@ -8,6 +8,6 @@ export function getDateString(date: Date): string {
 
 export function calculateEndTime(startTime: string, duration: number): string {
   const startIndex = HOURS.indexOf(startTime);
-  const endIndex = Math.min(startIndex + duration - 1, HOURS.length - 1);
+  const endIndex = Math.min(startIndex + duration, HOURS.length - 1);
   return HOURS[endIndex];
 }

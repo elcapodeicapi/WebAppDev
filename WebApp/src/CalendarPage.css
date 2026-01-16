@@ -77,7 +77,9 @@ h1 {
 .td-cell.occupied {
   background-color: #b2ebf2;
   cursor: pointer;
+}
 
+.td-cell.occupied:has(.meeting-block) {
   /* BELANGRIJK: meerdere events onder elkaar */
   display: flex;
   flex-direction: column;
